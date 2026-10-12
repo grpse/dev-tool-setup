@@ -271,13 +271,13 @@ key = "prefix+x"
 type = "popup"
 width = 40
 height = 3
-command = """sh -c 'id=$(herdr pane current | jq -r .result.pane.pane_id); printf "Close pane %s? [y/N] " "$id"; read -r a; [ "$a" = y ] && herdr pane close "$id"; sleep 0.3; "$HOME/.config/herdr/tab-renumber.sh"'"""
+command = 'sh "$HOME/.config/herdr/close.sh" pane'
 
 # prefix+c: new tab in the current directory (herdr.bash names it)
 [[keys.command]]
 key = "prefix+c"
 type = "shell"
-command = """sh -c 'd=$(herdr pane current | jq -r .result.pane.foreground_cwd); herdr tab create --cwd "$d" --focus'"""
+command = '"$HOME/.config/herdr/launch.sh" tab create --cwd "${HERDR_ACTIVE_PANE_CWD:-$PWD}" --focus'
 
 # prefix+X: close the tab, then renumber the rest
 [[keys.command]]
@@ -285,14 +285,41 @@ key = "prefix+shift+x"
 type = "popup"
 width = 40
 height = 3
-command = """sh -c 't=$(herdr pane current | jq -r .result.pane.tab_id); printf "Close tab? [y/N] "; read -r a; [ "$a" = y ] && herdr tab close "$t"; sleep 0.3; "$HOME/.config/herdr/tab-renumber.sh"'"""
+command = 'sh "$HOME/.config/herdr/close.sh" tab'
 EOF
 
-write ~/.config/herdr/tab-renumber.sh <<'EOF'
+write ~/.config/herdr/close.sh <<'EOF'
 #!/bin/sh
+# Popups have no HERDR_PANE_ID. Herdr supplies the underlying active IDs instead.
+kind=${1:-}
+case "$kind" in
+  pane) target=${HERDR_ACTIVE_PANE_ID:-} ;;
+  tab) target=${HERDR_ACTIVE_TAB_ID:-} ;;
+  *) printf 'Expected pane or tab.\n' >&2; exit 2 ;;
+esac
+if [ -z "$target" ]; then
+  printf 'Cannot determine the active %s.\n' "$kind" >&2
+  exit 1
+fi
+workspace=${HERDR_ACTIVE_WORKSPACE_ID:-}
+printf 'Close %s %s? [y/N] ' "$kind" "$target"
+IFS= read -r answer || exit 0
+case "$answer" in y|Y|yes|YES|Yes) ;; *) exit 0 ;; esac
+"$HOME/.config/herdr/launch.sh" "$kind" close "$target" >/dev/null || exit "$?"
+# The workspace may have disappeared when its last tab closed.
+if [ -n "$workspace" ]; then
+  "$HOME/.config/herdr/tab-renumber.sh" "$workspace" 2>/dev/null || :
+fi
+EOF
+chmod +x ~/.config/herdr/close.sh
+
+write ~/.config/herdr/tab-renumber.sh <<'EOF'
+#!/bin/bash
 # Relabel every tab in the workspace as "<position>:<name>", keeping the name part.
 # Usage: tab-renumber.sh [workspace_id] [tab_id new_name]
-ws=${1:-$HERDR_WORKSPACE_ID}
+source "$HOME/.config/herdr/platform.bash"
+herdr() { "$HOME/.config/herdr/launch.sh" "$@"; }
+ws=${1:-${HERDR_WORKSPACE_ID:-}}
 [ -n "$ws" ] || ws=$(herdr pane current | jq -r '.result.pane.workspace_id')
 herdr tab list --workspace "$ws" |
   jq -r --arg t "${2:-}" --arg n "${3:-}" '.result.tabs | to_entries[] |
@@ -400,6 +427,8 @@ write ~/.config/herdr/selection.bash <<'EOF'
 if declare -F bleopt >/dev/null; then
   bleopt complete_auto_complete= highlight_syntax= highlight_filename= highlight_variable=
   bleopt exec_elapsed_enabled=0
+  # Starship already indicates failed commands; keep ble.sh's extra labels quiet.
+  bleopt exec_errexit_mark= exec_exit_mark=
   ble-bind -m emacs -f 'C-S-up' '@marked backward-line'
   ble-bind -m emacs -f 'C-S-down' '@marked forward-line'
   ble-bind -m emacs -f 'C-S-left' '@marked backward-cword'

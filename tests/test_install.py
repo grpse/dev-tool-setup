@@ -44,6 +44,10 @@ fi
 if [ "${1:-} ${2:-}" = 'config check' ] && [ -n "$TEST_REAL_HERDR" ]; then
   HERDR_CONFIG_PATH="$HOME/.config/herdr/config.toml" "$TEST_REAL_HERDR" config check
 fi
+if [ "${1:-} ${2:-}" = 'tab list' ]; then
+  printf '%s\\n' '{"result":{"tabs":[]}}'
+fi
+if [ "${2:-}" = close ]; then exit "${TEST_CLOSE_STATUS:-0}"; fi
 ''')
         self.stub("brew", '''
 printf '%s\\n' "$*" >> "$HOME/brew-calls"
@@ -190,6 +194,47 @@ go version
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual((self.home / "gui-environment").read_text().splitlines(),
                          [str(self.prefix / "bin/bash"), str(self.prefix / "bin/starship")])
+
+    def test_close_popup_without_herdr_on_path(self):
+        self.setup_home("Linux")
+        config = self.run_installer()
+        minimal = self.home / "popup-bin"
+        minimal.mkdir()
+        for tool in ("uname", "jq"):
+            (minimal / tool).symlink_to(self.bin / tool)
+        env = dict(self.env, PATH=str(minimal), HERDR_ACTIVE_TAB_ID="active-tab",
+                   HERDR_ACTIVE_PANE_ID="active-pane", HERDR_ACTIVE_WORKSPACE_ID="active-ws",
+                   HERDR_TAB_ID="wrong-tab", HERDR_PANE_ID="wrong-pane")
+        for kind, key, target in (("tab", "prefix+shift+x", "active-tab"),
+                                  ("pane", "prefix+x", "active-pane")):
+            command = next(c["command"] for c in config["keys"]["command"] if c["key"] == key)
+            # The popup can run sh, but cannot resolve herdr itself.
+            (minimal / "sh").symlink_to(shutil.which("sh"))
+            try:
+                result = subprocess.run([shutil.which("sh"), "-c", command], env=env,
+                                        input="y\n", text=True, capture_output=True, timeout=10)
+            finally:
+                (minimal / "sh").unlink()
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            calls = (self.home / "herdr-calls").read_text()
+            self.assertIn(f"{kind} close {target}\n", calls)
+            self.assertIn("tab list --workspace active-ws\n", calls)
+            self.assertNotIn("pane current", calls)
+
+    def test_close_cancel_and_failure(self):
+        self.setup_home("Linux")
+        self.run_installer()
+        script = self.home / ".config/herdr/close.sh"
+        env = dict(self.env, HERDR_ACTIVE_TAB_ID="active-tab")
+        for answer in ("n\n", "\n", ""):
+            result = subprocess.run([shutil.which("sh"), str(script), "tab"], env=env,
+                                    input=answer, text=True, capture_output=True, timeout=10)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertNotIn("tab close", (self.home / "herdr-calls").read_text())
+        result = subprocess.run([shutil.which("sh"), str(script), "tab"],
+                                env=dict(env, TEST_CLOSE_STATUS="7"), input="y\n",
+                                text=True, capture_output=True, timeout=10)
+        self.assertEqual(result.returncode, 7, "Close errors must still be reported")
 
 
 if __name__ == "__main__":
