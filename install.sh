@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# dev-setup: Ghostty + herdr + Bash + Starship, fully self-contained.
+# dev-setup: Ghostty + herdr + Bash + Starship + GVM/Go, fully self-contained.
 # Every config lives in this file. Running it installs missing tools, backs up
 # any existing configs to ~/.config/dev-setup-backup/<timestamp>/, then writes them.
 set -euo pipefail
@@ -32,6 +32,8 @@ command -v jq >/dev/null       || missing+=(jq)
 command -v herdr >/dev/null    || missing+=(herdr)
 command -v bash >/dev/null     || missing+=(bash)
 command -v starship >/dev/null || missing+=(starship)
+command -v git >/dev/null      || missing+=(git)
+[ -s ~/.gvm/scripts/gvm ]      || missing+=(gvm)
 [ -f ~/.local/share/blesh/ble.sh ] || missing+=(blesh)
 
 if [ ${#missing[@]} -eq 0 ]; then
@@ -59,8 +61,8 @@ for p in ${missing[@]+"${missing[@]}"}; do
   case "$OS:$p" in
     Darwin:ghostty)                   brew install --cask ghostty ;;
     Darwin:jetbrains-mono-nerd-font)  brew install --cask font-jetbrains-mono-nerd-font ;;
-    Darwin:jq|Darwin:bash|Darwin:starship) brew install "$p" ;;
-    Linux:jq|Linux:bash)              pkg_install "$p" || manual+=("$p") ;;
+    Darwin:jq|Darwin:bash|Darwin:starship|Darwin:git) brew install "$p" ;;
+    Linux:jq|Linux:bash|Linux:git)     pkg_install "$p" || manual+=("$p") ;;
     Linux:starship)                   curl -fsSL https://starship.rs/install.sh | sh -s -- -y -b ~/.local/bin ;;
     Linux:ghostty)                    manual+=("ghostty (see https://ghostty.org/docs/install/binary)") ;;
     Linux:jetbrains-mono-nerd-font)
@@ -68,6 +70,7 @@ for p in ${missing[@]+"${missing[@]}"}; do
       curl -fsSL https://github.com/ryanoasis/nerd-fonts/releases/latest/download/JetBrainsMono.tar.xz |
         tar -xJ -C ~/.local/share/fonts/JetBrainsMono && fc-cache -f >/dev/null ;;
     *:herdr)                          curl -fsSL https://herdr.dev/install.sh | sh ;;
+    *:gvm)                            curl -fsSL https://raw.githubusercontent.com/moovweb/gvm/master/binscripts/gvm-installer | bash ;;
     *:blesh)
       ble_tmp=$(mktemp -d)
       curl -fsSL https://github.com/akinomyoga/ble.sh/releases/download/nightly/ble-nightly.tar.xz |
@@ -81,6 +84,36 @@ if [ ${#manual[@]} -gt 0 ]; then
 fi
 HERDR_BIN=$(command -v herdr || echo ~/.local/bin/herdr)
 BASH_BIN=$(command -v bash) || { echo "bash is required; install it and re-run."; exit 1; }
+
+# --- Go ----------------------------------------------------------------------
+# Keep a working GVM default. DEV_SETUP_GO_VERSION can explicitly select another.
+GVM_DEFAULT=$("$BASH_BIN" -c '
+  [ -f "$HOME/.gvm/environments/default" ] || exit 0
+  source "$HOME/.gvm/environments/default"
+  [ -x "${GOROOT:-}/bin/go" ] && printf "%s" "$gvm_go_name"
+' || true)
+GO_VERSION=${DEV_SETUP_GO_VERSION:-$GVM_DEFAULT}
+if [ -z "$GO_VERSION" ]; then
+  GO_VERSION=$(for candidate in "$HOME"/.gvm/gos/go[0-9]*; do
+    if [ -x "$candidate/bin/go" ]; then basename "$candidate"; fi
+  done | sed -nE 's/^go([0-9]+\.[0-9]+(\.[0-9]+)?)$/\1/p' |
+    sort -t. -k1,1n -k2,2n -k3,3n | tail -n 1)
+  [ -z "$GO_VERSION" ] || GO_VERSION=go$GO_VERSION
+fi
+if [ -z "$GO_VERSION" ]; then
+  GO_VERSION=$(curl -fsSL 'https://go.dev/dl/?mode=json' | jq -r '[.[] | select(.stable)][0].version')
+fi
+if [ ! -x "$HOME/.gvm/gos/$GO_VERSION/bin/go" ]; then
+  "$BASH_BIN" -c 'source "$HOME/.gvm/scripts/gvm" && gvm install "$1" --binary' bash "$GO_VERSION"
+fi
+if [ "$GO_VERSION" != "$GVM_DEFAULT" ]; then
+  if [ -f ~/.gvm/environments/default ]; then
+    mkdir -p "$BACKUP"
+    cp ~/.gvm/environments/default "$BACKUP/gvm-environments-default"
+  fi
+  "$BASH_BIN" -c 'source "$HOME/.gvm/scripts/gvm" && gvm use "$1" --default --quiet' bash "$GO_VERSION"
+fi
+echo "Go default: $GO_VERSION (GVM)"
 
 # --- Ghostty -----------------------------------------------------------------
 write ~/.config/ghostty/config <<EOF
@@ -110,11 +143,16 @@ onboarding = false
 
 [terminal]
 default_shell = "$BASH_BIN"
+shell_mode = "non_login"
 EOF
 cat >> ~/.config/herdr/config.toml <<'EOF'
 
 [keys]
 prefix = "ctrl+w"
+workspace_picker = "prefix+w"
+# Navigate mode also accepts prefix bindings: prefix+w, then n creates a space.
+new_workspace = ["prefix+n", "prefix+shift+n"]
+next_tab = "prefix+shift+right"
 focus_pane_left = "prefix+left"
 focus_pane_down = "prefix+down"
 focus_pane_up = "prefix+up"
@@ -240,6 +278,21 @@ format = "[$virtualenv]($style) "
 style = "bright-black"
 detect_extensions = []
 detect_files = []
+
+[golang]
+disabled = true
+EOF
+
+write ~/.config/herdr/shell.bash <<'EOF'
+# Shared startup for fresh Bash panes, independent of the server's environment.
+export SHELL="$BASH"
+export PATH="$HOME/.local/bin:$PATH"
+if [[ -s "$HOME/.gvm/scripts/gvm" ]] && ! declare -F gvm >/dev/null; then
+  source "$HOME/.gvm/scripts/gvm"
+fi
+if command -v starship >/dev/null; then
+  eval "$(starship init bash)"
+fi
 EOF
 
 write ~/.config/herdr/selection.bash <<'EOF'
@@ -289,24 +342,28 @@ fi
 
 EOF
   cat ~/.bashrc >> "$rc_tmp"
-  cat >> "$rc_tmp" <<'EOF'
+  write ~/.bashrc < "$rc_tmp"
+  rm "$rc_tmp"
+fi
 
-# dev-setup: enable Bash selection support after other shell settings
+# Register prompt hooks before ble-attach draws the first prompt.
+# Rebuild this small managed tail so reruns also migrate the old startup order.
+rc_tmp=$(mktemp)
+sed -e '/^# dev-setup: enable Bash selection support after other shell settings$/d' \
+    -e '/^# dev-setup: GVM and Starship$/d' \
+    -e '/^# dev-setup: finish interactive shell startup$/d' \
+    -e '/^source ~\/.config\/herdr\/selection.bash$/d' \
+    -e '/^source ~\/.config\/herdr\/shell.bash$/d' \
+    -e '/^if \[\[ \$- == \*i\* && \${BLE_VERSION:-} \]\]; then ble-attach; fi$/d' \
+    ~/.bashrc > "$rc_tmp"
+cat >> "$rc_tmp" <<'EOF'
+# dev-setup: finish interactive shell startup
+source ~/.config/herdr/shell.bash
 source ~/.config/herdr/selection.bash
 if [[ $- == *i* && ${BLE_VERSION:-} ]]; then ble-attach; fi
 EOF
-  write ~/.bashrc < "$rc_tmp"
-  rm "$rc_tmp"
-fi
-
-# Starship integrates with ble.sh when the line editor has already loaded.
-if ! grep -q 'starship init bash' ~/.bashrc; then
-  rc_tmp=$(mktemp)
-  cat ~/.bashrc > "$rc_tmp"
-  printf '\n# Starship prompt\neval "$(starship init bash)"\n' >> "$rc_tmp"
-  write ~/.bashrc < "$rc_tmp"
-  rm "$rc_tmp"
-fi
+if ! cmp -s ~/.bashrc "$rc_tmp"; then write ~/.bashrc < "$rc_tmp"; fi
+rm "$rc_tmp"
 
 herdr config check
 herdr server reload-config >/dev/null 2>&1 || true
