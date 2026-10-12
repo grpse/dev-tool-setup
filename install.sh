@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# dev-setup: Ghostty + herdr + Bash, fully self-contained.
+# dev-setup: Ghostty + herdr + Bash + Starship, fully self-contained.
 # Every config lives in this file. Running it installs missing tools, backs up
 # any existing configs to ~/.config/dev-setup-backup/<timestamp>/, then writes them.
 set -euo pipefail
@@ -31,6 +31,7 @@ has_font                      || missing+=(jetbrains-mono-nerd-font)
 command -v jq >/dev/null       || missing+=(jq)
 command -v herdr >/dev/null    || missing+=(herdr)
 command -v bash >/dev/null     || missing+=(bash)
+command -v starship >/dev/null || missing+=(starship)
 [ -f ~/.local/share/blesh/ble.sh ] || missing+=(blesh)
 
 if [ ${#missing[@]} -eq 0 ]; then
@@ -58,8 +59,9 @@ for p in ${missing[@]+"${missing[@]}"}; do
   case "$OS:$p" in
     Darwin:ghostty)                   brew install --cask ghostty ;;
     Darwin:jetbrains-mono-nerd-font)  brew install --cask font-jetbrains-mono-nerd-font ;;
-    Darwin:jq|Darwin:bash)            brew install "$p" ;;
+    Darwin:jq|Darwin:bash|Darwin:starship) brew install "$p" ;;
     Linux:jq|Linux:bash)              pkg_install "$p" || manual+=("$p") ;;
+    Linux:starship)                   curl -fsSL https://starship.rs/install.sh | sh -s -- -y -b ~/.local/bin ;;
     Linux:ghostty)                    manual+=("ghostty (see https://ghostty.org/docs/install/binary)") ;;
     Linux:jetbrains-mono-nerd-font)
       mkdir -p ~/.local/share/fonts/JetBrainsMono &&
@@ -186,8 +188,62 @@ if [[ -n ${HERDR_TAB_ID:-} ]] && command -v jq >/dev/null; then
 fi
 EOF
 
+# --- Starship ----------------------------------------------------------------
+write ~/.config/starship.toml <<'EOF'
+"$schema" = 'https://starship.rs/config-schema.json'
+
+format = """
+$username\
+$hostname\
+$directory\
+$git_branch\
+$git_state\
+$git_status\
+$cmd_duration\
+$line_break\
+$python\
+$character"""
+
+[directory]
+style = "blue"
+
+[character]
+success_symbol = "[❯](purple)"
+error_symbol = "[❯](red)"
+vimcmd_symbol = "[❮](green)"
+
+[git_branch]
+format = "[$branch]($style)"
+style = "bright-black"
+
+[git_status]
+format = "[[(*$conflicted$untracked$modified$staged$renamed$deleted)](218) ($ahead_behind$stashed)]($style)"
+style = "cyan"
+conflicted = "​"
+untracked = "​"
+modified = "​"
+staged = "​"
+renamed = "​"
+deleted = "​"
+stashed = "≡"
+
+[git_state]
+format = '\([$state( $progress_current/$progress_total)]($style)\) '
+style = "bright-black"
+
+[cmd_duration]
+format = "[$duration]($style) "
+style = "yellow"
+
+[python]
+format = "[$virtualenv]($style) "
+style = "bright-black"
+detect_extensions = []
+detect_files = []
+EOF
+
 write ~/.config/herdr/selection.bash <<'EOF'
-# ble.sh adds Shift selection while retaining the normal Bash prompt.
+# ble.sh adds Shift selection while retaining the configured Bash prompt.
 if declare -F bleopt >/dev/null; then
   bleopt complete_auto_complete= highlight_syntax= highlight_filename= highlight_variable=
   bleopt exec_elapsed_enabled=0
@@ -200,7 +256,7 @@ if declare -F bleopt >/dev/null; then
 fi
 EOF
 
-# --- Bash and migration from the previous zsh/Starship setup -------------------
+# --- Bash and migration from the previous zsh setup ----------------------------
 # Preserve user startup settings, removing only the old setup integrations.
 for rc in "$HOME/.bashrc" "$HOME/.zshrc"; do
   [ -f "$rc" ] || continue
@@ -239,6 +295,15 @@ EOF
 source ~/.config/herdr/selection.bash
 if [[ $- == *i* && ${BLE_VERSION:-} ]]; then ble-attach; fi
 EOF
+  write ~/.bashrc < "$rc_tmp"
+  rm "$rc_tmp"
+fi
+
+# Starship integrates with ble.sh when the line editor has already loaded.
+if ! grep -q 'starship init bash' ~/.bashrc; then
+  rc_tmp=$(mktemp)
+  cat ~/.bashrc > "$rc_tmp"
+  printf '\n# Starship prompt\neval "$(starship init bash)"\n' >> "$rc_tmp"
   write ~/.bashrc < "$rc_tmp"
   rm "$rc_tmp"
 fi
