@@ -146,7 +146,7 @@ go version
     def test_linux(self):
         self.setup_home("Linux")
         config = self.run_installer()
-        self.assertEqual(config["keys"]["prefix"], "ctrl+w")
+        self.assertEqual(config["keys"]["prefix"], "alt+w")
         self.assertEqual(config["keys"]["clear_pane"], "ctrl+k")
         self.assertEqual(config["terminal"]["shell_mode"], "non_login")
         self.assertFalse((self.home / ".bash_profile").exists())

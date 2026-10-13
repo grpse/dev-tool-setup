@@ -20,7 +20,7 @@ and managed Bash startup entries are backed up under
 
 | Action | macOS | Linux |
 | --- | --- | --- |
-| Herdr prefix | Cmd+W | Ctrl+W |
+| Herdr prefix | Cmd+W | Alt+W |
 | New space | Prefix, W, N | Prefix, W, N |
 | New Herdr tab in the current directory | Prefix, C | Prefix, C |
 | Close pane (confirm with Y, Enter) | Prefix, X | Prefix, X |

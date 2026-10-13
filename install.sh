@@ -40,9 +40,11 @@ if [ "$OS" = Darwin ]; then
   BREW_PREFIX=$(brew --prefix)
   BASH_BIN="$BREW_PREFIX/bin/bash"
   KEY_MOD=cmd
+  PREFIX_MOD=cmd
 else
   BASH_BIN=$(command -v bash || true)
   KEY_MOD=ctrl
+  PREFIX_MOD=alt
 fi
 
 has_ghostty() {
@@ -205,7 +207,7 @@ write "$GHOSTTY_CONFIG" <<EOF
 command = "$HOME/.config/herdr/launch.sh"
 
 # Pass the platform's prefix and clear shortcut through to herdr.
-keybind = $KEY_MOD+w=unbind
+keybind = $PREFIX_MOD+w=unbind
 keybind = $KEY_MOD+k=unbind
 
 # Let Herdr receive the copy-mode shortcut instead of an outer-terminal binding.
@@ -246,7 +248,7 @@ EOF
 cat >> ~/.config/herdr/config.toml <<EOF
 
 [keys]
-prefix = "$KEY_MOD+w"
+prefix = "$PREFIX_MOD+w"
 workspace_picker = "prefix+w"
 # Navigate mode also accepts prefix bindings: prefix+w, then n creates a space.
 new_workspace = ["prefix+n", "prefix+shift+n"]
