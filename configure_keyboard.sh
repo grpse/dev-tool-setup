@@ -22,6 +22,8 @@ KEYS = [
     ('org.gnome.desktop.wm.keybindings', 'close'),
     ('org.gnome.shell.keybindings', 'toggle-application-view'),
     ('org.gnome.shell.keybindings', 'toggle-overview'),
+    ('org.gnome.shell.keybindings', 'screenshot'),
+    ('org.gnome.shell.keybindings', 'show-screenshot-ui'),
     ('org.gnome.desktop.interface', 'gtk-key-theme'),
 ]
 
@@ -121,6 +123,10 @@ def config(ids, cmd_key):
 [mac_command:C]
 space = f13
 q = f14
+# GNOME: Shift+Print captures the screen; Print opens area/window/recording UI.
+3 = S-print
+4 = print
+5 = print
 left = home
 right = end
 up = C-home
@@ -133,11 +139,22 @@ tab = A-tab
 # Option+Tab cycles windows of the current app; Shift reverses direction.
 # Option also navigates/deletes by word. Other combinations remain Alt.
 [mac_option:A]
+# US International: AltGr+comma is ç; AltGr+Shift+comma is Ç.
+c = G-comma
 tab = A-f6
 left = C-left
 right = C-right
 backspace = C-backspace
 delete = C-delete
+
+# Consume Shift explicitly so Mac-style shifted screenshot chords also work.
+[mac_command+shift]
+3 = S-print
+4 = print
+5 = print
+
+[mac_option+shift]
+c = G-S-comma
 '''
 
 
@@ -209,6 +226,18 @@ def snapshot(Gio):
             Gio.Settings.new('org.gnome.desktop.input-sources').get_strv('xkb-options')}
 
 
+def upgrade_state(Gio, state):
+    fresh = snapshot(Gio)
+    if state is None:
+        return fresh
+    upgraded = dict(state, settings=list(state['settings']))
+    saved_keys = {(entry['schema'], entry['key']) for entry in upgraded['settings']}
+    upgraded['settings'].extend(entry for entry in fresh['settings']
+                               if (entry['schema'], entry['key']) not in saved_keys)
+    upgraded.setdefault('basic_fkeys_was_present', fresh['basic_fkeys_was_present'])
+    return upgraded
+
+
 def restore_desktop(Gio, GLib, state, refresh=True):
     if state:
         for entry in state['settings']:
@@ -227,7 +256,7 @@ def restore_desktop(Gio, GLib, state, refresh=True):
                 settings.reset(key)
             elif key == 'toggle-application-view':
                 settings.reset(key)
-            elif settings.get_string(key) == 'Mac':
+            elif key == 'gtk-key-theme' and settings.get_string(key) == 'Mac':
                 settings.reset(key)
     changed = clean_desktop(Gio, state.get('basic_fkeys_was_present', False) if state else False)
     Gio.Settings.sync()
@@ -247,6 +276,8 @@ def apply_desktop(Gio, GLib, state):
     for schema, key, binding in [
         ('org.gnome.shell.keybindings', 'toggle-application-view', 'F13'),
         ('org.gnome.desktop.wm.keybindings', 'close', 'F14'),
+        ('org.gnome.shell.keybindings', 'screenshot', '<Shift>Print'),
+        ('org.gnome.shell.keybindings', 'show-screenshot-ui', 'Print'),
     ]:
         settings = Gio.Settings.new(schema)
         values = list(settings.get_strv(key))
@@ -309,12 +340,9 @@ def main():
         print('Removed this keyboard profile and restored desktop shortcuts. Unrelated XKB options are preserved.')
         print('Obsolete modifier mappings from the previous scripts stay removed.')
         return
-    save_state = state is None or 'basic_fkeys_was_present' not in state
-    if state is None:
-        state = snapshot(Gio)
-    elif 'basic_fkeys_was_present' not in state:
-        state['basic_fkeys_was_present'] = BASIC_FKEYS in \
-            Gio.Settings.new('org.gnome.desktop.input-sources').get_strv('xkb-options')
+    upgraded = upgrade_state(Gio, state)
+    save_state = upgraded != state
+    state = upgraded
     if save_state:
         STATE.parent.mkdir(parents=True, exist_ok=True)
         with tempfile.NamedTemporaryFile(mode='w', dir=STATE.parent, delete=False) as saved:
@@ -336,6 +364,8 @@ def main():
     print('Command: Control shortcuts; Command+Space: Show Applications (type to search); Command+Q: close focused window.')
     print('Command+Left/Right: line start/end; Option+Left/Right: word navigation; Command+Tab: switch apps.')
     print('Option+Tab: next window of the current app; Option+Shift+Tab: previous window.')
+    print('Option+C / Option+Shift+C: ç / Ç with US International layout.')
+    print('Command+3: full-screen screenshot; Command+4/5: GNOME area/screenshot/recording controls.')
     print('Physical Left Ctrl remains Ctrl. In terminals, Command+C sends Ctrl+C; use Command+Shift+C/V for clipboard shortcuts where supported.')
     print('After migrating from the old scripts, log out and back in once to clear the old compositor keymap.')
     print('Confirm the physical keys. If Command sends meta instead of alt, rerun with --cmd-key meta.')
