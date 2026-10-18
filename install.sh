@@ -210,6 +210,9 @@ command = "$HOME/.config/herdr/launch.sh"
 keybind = $PREFIX_MOD+w=unbind
 keybind = $KEY_MOD+k=unbind
 
+# Send Ctrl+C as the terminal interrupt byte, even when enhanced key reporting is active.
+keybind = ctrl+c=text:\\x03
+
 # Let Herdr receive the copy-mode shortcut instead of an outer-terminal binding.
 keybind = $KEY_MOD+shift+space=unbind
 
