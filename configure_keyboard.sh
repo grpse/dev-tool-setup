@@ -17,6 +17,7 @@ MARKER = "# Managed by dev-setup configure_keyboard.sh"
 PROFILE = Path('/etc/keyd/dev-setup-mx-keys-mini.conf')
 STATE = Path(os.environ.get('XDG_STATE_HOME', str(Path.home() / '.local/state'))) / 'dev-setup/mx-keys-mini.json'
 LEGACY = {'altwin:ctrl_alt_win', 'altwin:swap_alt_win', 'ctrl:swap_lalt_lctl'}
+BASIC_FKEYS = 'fkeys:basic_13-24'
 KEYS = [
     ('org.gnome.desktop.wm.keybindings', 'close'),
     ('org.gnome.shell.keybindings', 'toggle-application-view'),
@@ -154,10 +155,39 @@ def desktop():
     return Gio, GLib
 
 
-def clean_desktop(Gio):
+def clean_desktop(Gio, basic_fkeys):
     settings = Gio.Settings.new('org.gnome.desktop.input-sources')
-    options = settings.get_strv('xkb-options')
-    settings.set_strv('xkb-options', [o for o in options if o not in LEGACY])
+    original = list(settings.get_strv('xkb-options'))
+    options = original
+    options = [o for o in options if o not in LEGACY and o != BASIC_FKEYS]
+    if basic_fkeys:
+        options.append(BASIC_FKEYS)
+    settings.set_strv('xkb-options', options)
+    return options != original
+
+
+def refresh_keymap(Gio, GLib):
+    # GNOME 50.1's keyboardManager.reapply passes a layout object where an ID
+    # is expected, so xkb-options changes can remain saved but unapplied.
+    # Rebuilding the input-source list takes the working apply-by-ID path.
+    settings = Gio.Settings.new('org.gnome.desktop.input-sources')
+    original = settings.get_value('sources')
+    sources = original.unpack()
+    if not sources:
+        return
+    temporary = next((('xkb', layout) for layout in ('us', 'gb', 'de')
+                      if ('xkb', layout) not in sources), None)
+    if temporary is None:
+        print('Log out and back in to refresh the compositor keyboard map.')
+        return
+    try:
+        settings.set_value('sources', GLib.Variant('a(ss)', sources + [temporary]))
+        Gio.Settings.sync()
+        time.sleep(0.4)
+    finally:
+        settings.set_value('sources', original)
+        Gio.Settings.sync()
+    time.sleep(0.4)
 
 
 def snapshot(Gio):
@@ -175,10 +205,11 @@ def snapshot(Gio):
             data = None
         saved.append({'schema': schema, 'key': key, 'value': data,
                       'type': settings.get_value(key).get_type_string()})
-    return {'settings': saved}
+    return {'settings': saved, 'basic_fkeys_was_present': BASIC_FKEYS in
+            Gio.Settings.new('org.gnome.desktop.input-sources').get_strv('xkb-options')}
 
 
-def restore_desktop(Gio, GLib, state):
+def restore_desktop(Gio, GLib, state, refresh=True):
     if state:
         for entry in state['settings']:
             settings = Gio.Settings.new(entry['schema'])
@@ -198,15 +229,23 @@ def restore_desktop(Gio, GLib, state):
                 settings.reset(key)
             elif settings.get_string(key) == 'Mac':
                 settings.reset(key)
-    clean_desktop(Gio)
+    changed = clean_desktop(Gio, state.get('basic_fkeys_was_present', False) if state else False)
     Gio.Settings.sync()
+    if changed and refresh:
+        refresh_keymap(Gio, GLib)
 
 
 def apply_desktop(Gio, GLib, state):
     # Start from the saved baseline, so repeated runs don't overwrite the backup.
-    restore_desktop(Gio, GLib, state)
+    restore_desktop(Gio, GLib, state, refresh=False)
+    # Ubuntu's default inet symbols translate KEY_F13 to XF86Tools (Settings),
+    # and KEY_F14 to XF86Launch5. Keep our synthetic keys as F13/F14 instead.
+    clean_desktop(Gio, True)
+    shell = Gio.Settings.new('org.gnome.shell.keybindings')
+    # F13 was assigned to the window overview by the previous version.
+    shell.set_strv('toggle-overview', [v for v in shell.get_strv('toggle-overview') if v != 'F13'])
     for schema, key, binding in [
-        ('org.gnome.shell.keybindings', 'toggle-overview', 'F13'),
+        ('org.gnome.shell.keybindings', 'toggle-application-view', 'F13'),
         ('org.gnome.desktop.wm.keybindings', 'close', 'F14'),
     ]:
         settings = Gio.Settings.new(schema)
@@ -216,6 +255,7 @@ def apply_desktop(Gio, GLib, state):
         settings.set_strv(key, values)
     Gio.Settings.new('org.gnome.desktop.interface').set_string('gtk-key-theme', 'Default')
     Gio.Settings.sync()
+    refresh_keymap(Gio, GLib)
 
 
 def main():
@@ -269,8 +309,13 @@ def main():
         print('Removed this keyboard profile and restored desktop shortcuts. Unrelated XKB options are preserved.')
         print('Obsolete modifier mappings from the previous scripts stay removed.')
         return
+    save_state = state is None or 'basic_fkeys_was_present' not in state
     if state is None:
         state = snapshot(Gio)
+    elif 'basic_fkeys_was_present' not in state:
+        state['basic_fkeys_was_present'] = BASIC_FKEYS in \
+            Gio.Settings.new('org.gnome.desktop.input-sources').get_strv('xkb-options')
+    if save_state:
         STATE.parent.mkdir(parents=True, exist_ok=True)
         with tempfile.NamedTemporaryFile(mode='w', dir=STATE.parent, delete=False) as saved:
             json.dump(state, saved)
@@ -288,7 +333,7 @@ def main():
     if recent.returncode == 0 and re.search(r'(?im)^.*(?:error:|failed to parse|invalid config)', recent.stdout):
         sys.exit('Keyd reported an error; run bash configure_keyboard.sh --status to inspect its log.\n' + recent.stdout)
     print('Installed the MX Keys Mini profile for ' + ', '.join(ids) + '.')
-    print('Command: Control shortcuts; Command+Space: search; Command+Q: close focused window.')
+    print('Command: Control shortcuts; Command+Space: Show Applications (type to search); Command+Q: close focused window.')
     print('Command+Left/Right: line start/end; Option+Left/Right: word navigation; Command+Tab: switch apps.')
     print('Option+Tab: next window of the current app; Option+Shift+Tab: previous window.')
     print('Physical Left Ctrl remains Ctrl. In terminals, Command+C sends Ctrl+C; use Command+Shift+C/V for clipboard shortcuts where supported.')

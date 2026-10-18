@@ -65,11 +65,16 @@ Wayland/X11 applications receive it. The profile matches the connected **MX Keys
 Mini device ID**, and keeps the physical Left Ctrl key as Ctrl. It removes the
 conflicting mappings left by the earlier scripts from both GNOME and
 `/etc/default/keyboard`; unrelated XKB options remain configured.
+It also enables `fkeys:basic_13-24`: Ubuntu otherwise translates the profile's
+F13 launcher key into `XF86Tools`, which opens Settings. Reset restores whether
+this function-key option was configured before setup.
+The script refreshes GNOME's input sources to apply the option immediately,
+then restores the original source list.
 
 | Physical shortcut | Result |
 | --- | --- |
 | Command+C / V / X / A / Z | Standard Ctrl copy / paste / cut / select all / undo |
-| Command+Space | GNOME overview; type to search apps |
+| Command+Space | Show Applications grid; type to search apps |
 | Command+Q | Close the focused window |
 | Command+Left / Right | Beginning / end of line |
 | Command+Shift+Left / Right | Select to beginning / end of line |
