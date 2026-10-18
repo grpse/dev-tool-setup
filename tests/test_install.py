@@ -146,11 +146,12 @@ go version
     def test_linux(self):
         self.setup_home("Linux")
         config = self.run_installer()
-        self.assertEqual(config["keys"]["prefix"], "alt+w")
+        self.assertEqual(config["keys"]["prefix"], "ctrl+w")
         self.assertEqual(config["keys"]["clear_pane"], "ctrl+k")
         self.assertEqual(config["terminal"]["shell_mode"], "non_login")
         self.assertFalse((self.home / ".bash_profile").exists())
         self.assertTrue((self.home / ".config/ghostty/config").exists())
+        self.assertIn("keybind = ctrl+w=unbind", (self.home / ".config/ghostty/config").read_text())
         self.assertNotIn("macos-option", (self.home / ".config/ghostty/config").read_text())
         self.assertTrue(tomllib.loads((self.home / ".config/starship.toml").read_text())["golang"]["disabled"])
         self.verify_startup()

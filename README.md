@@ -20,7 +20,7 @@ and managed Bash startup entries are backed up under
 
 | Action | macOS | Linux |
 | --- | --- | --- |
-| Herdr prefix | Cmd+W | Alt+W |
+| Herdr prefix | Cmd+W | Ctrl+W (physical Cmd+W with the MX Keys Mini profile) |
 | New space | Prefix, W, N | Prefix, W, N |
 | New Herdr tab in the current directory | Prefix, C | Prefix, C |
 | Close pane (confirm with Y, Enter) | Prefix, X | Prefix, X |
@@ -75,6 +75,7 @@ conflicting mappings left by the earlier scripts from both GNOME and
 | Command+Shift+Left / Right | Select to beginning / end of line |
 | Command+Up / Down | Beginning / end of document |
 | Command+Tab | Switch applications |
+| Option+Tab / Option+Shift+Tab | Next / previous window of the current application |
 | Option+Left / Right | Move by word |
 | Option+Backspace / Delete | Delete by word |
 

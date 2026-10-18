@@ -44,7 +44,8 @@ if [ "$OS" = Darwin ]; then
 else
   BASH_BIN=$(command -v bash || true)
   KEY_MOD=ctrl
-  PREFIX_MOD=alt
+  # The MX Keys Mini keyd profile sends the physical Command key as Ctrl.
+  PREFIX_MOD=ctrl
 fi
 
 has_ghostty() {

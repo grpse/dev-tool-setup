@@ -129,8 +129,10 @@ tab = swapm(mac_app_switch, A-tab)
 [mac_app_switch:A]
 tab = A-tab
 
-# Option navigates/deletes by word. Other Option combinations remain Alt.
+# Option+Tab cycles windows of the current app; Shift reverses direction.
+# Option also navigates/deletes by word. Other combinations remain Alt.
 [mac_option:A]
+tab = A-f6
 left = C-left
 right = C-right
 backspace = C-backspace
@@ -288,6 +290,7 @@ def main():
     print('Installed the MX Keys Mini profile for ' + ', '.join(ids) + '.')
     print('Command: Control shortcuts; Command+Space: search; Command+Q: close focused window.')
     print('Command+Left/Right: line start/end; Option+Left/Right: word navigation; Command+Tab: switch apps.')
+    print('Option+Tab: next window of the current app; Option+Shift+Tab: previous window.')
     print('Physical Left Ctrl remains Ctrl. In terminals, Command+C sends Ctrl+C; use Command+Shift+C/V for clipboard shortcuts where supported.')
     print('After migrating from the old scripts, log out and back in once to clear the old compositor keymap.')
     print('Confirm the physical keys. If Command sends meta instead of alt, rerun with --cmd-key meta.')
