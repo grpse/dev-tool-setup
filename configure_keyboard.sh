@@ -123,9 +123,9 @@ def config(ids, cmd_key):
 [mac_command:C]
 space = f13
 q = f14
-# GNOME: Shift+Print captures the screen; Print opens area/window/recording UI.
+# Print opens GNOME's screenshot UI; S selects area mode (crosshair drag).
 3 = S-print
-4 = print
+4 = macro(print 250ms s)
 5 = print
 left = home
 right = end
@@ -150,7 +150,7 @@ delete = C-delete
 # Consume Shift explicitly so Mac-style shifted screenshot chords also work.
 [mac_command+shift]
 3 = S-print
-4 = print
+4 = macro(print 250ms s)
 5 = print
 
 [mac_option+shift]
@@ -365,7 +365,7 @@ def main():
     print('Command+Left/Right: line start/end; Option+Left/Right: word navigation; Command+Tab: switch apps.')
     print('Option+Tab: next window of the current app; Option+Shift+Tab: previous window.')
     print('Option+C / Option+Shift+C: ç / Ç with US International layout.')
-    print('Command+3: full-screen screenshot; Command+4/5: GNOME area/screenshot/recording controls.')
+    print('Command+3: full-screen screenshot; Command+4: select an area with the crosshair; Command+5: screenshot/recording controls.')
     print('Physical Left Ctrl remains Ctrl. In terminals, Command+C sends Ctrl+C; use Command+Shift+C/V for clipboard shortcuts where supported.')
     print('After migrating from the old scripts, log out and back in once to clear the old compositor keymap.')
     print('Confirm the physical keys. If Command sends meta instead of alt, rerun with --cmd-key meta.')

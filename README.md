@@ -85,13 +85,16 @@ then restores the original source list.
 | Option+Backspace / Delete | Delete by word |
 | Option+C / Option+Shift+C | ç / Ç (US International layout) |
 | Command+3 | Capture the entire screen |
-| Command+4 | Open GNOME's screenshot overlay to select an area |
+| Command+4 | Open the screenshot overlay in area-selection mode; drag with the crosshair |
 | Command+5 | Open GNOME's screenshot/recording controls |
 
-Command+4 and Command+5 open the same [native GNOME overlay](https://help.gnome.org/gnome-help/screen-shot-record.html): choose Selection,
-Screen, or Window, or switch to recording. Command+Shift+3/4/5 also work.
-These use GNOME's Print and Shift+Print actions; any existing screenshot
-shortcuts are preserved, and `--reset` restores their original settings.
+Command+4 opens the [native GNOME screenshot overlay](https://help.gnome.org/gnome-help/screen-shot-record.html)
+and selects area mode for you, so the crosshair is ready to drag. After selecting
+the region, click the capture button. Command+5 opens the same overlay for
+screenshot and recording controls. Command+Shift+3/4/5 also work.
+Cmd+4 uses GNOME's Print overlay and its `S` area-selection shortcut; Cmd+3
+uses Shift+Print for a full-screen capture. Existing screenshot shortcuts are
+preserved, and `--reset` restores their original settings.
 Option+C uses the current US International layout's AltGr+comma character;
 Option+Shift+C uses its uppercase form. No custom Compose file is required.
 
