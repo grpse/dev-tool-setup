@@ -86,7 +86,6 @@ command -v jq >/dev/null       || missing+=(jq)
 command -v herdr >/dev/null    || missing+=(herdr)
 command -v starship >/dev/null || missing+=(starship)
 [ -s ~/.gvm/scripts/gvm ]      || missing+=(gvm)
-[ -f ~/.local/share/blesh/ble.sh ] || missing+=(blesh)
 
 if [ ${#missing[@]} -eq 0 ]; then
   echo "All packages present."
@@ -121,12 +120,6 @@ for p in ${missing[@]+"${missing[@]}"}; do
     *:gvm)
       curl -fsSL https://raw.githubusercontent.com/moovweb/gvm/master/binscripts/gvm-installer |
         GVM_NO_UPDATE_PROFILE=1 "${BASH_BIN:-bash}" ;;
-    *:blesh)
-      ble_tmp=$(mktemp -d)
-      curl -fsSL https://github.com/akinomyoga/ble.sh/releases/download/nightly/ble-nightly.tar.xz |
-        tar -xJ -C "$ble_tmp"
-      "${BASH_BIN:-bash}" "$ble_tmp/ble-nightly/ble.sh" --install "$HOME/.local/share"
-      rm -rf "$ble_tmp" ;;
   esac
 done
 if [ ${#manual[@]} -gt 0 ]; then
@@ -441,41 +434,46 @@ if command -v starship >/dev/null; then
 fi
 EOF
 
-write ~/.config/herdr/selection.bash <<'EOF'
-# ble.sh provides marked command-line selection for Shift+Arrow shortcuts.
-if declare -F bleopt >/dev/null; then
-  bleopt complete_auto_complete= highlight_syntax= highlight_filename= highlight_variable=
-  bleopt exec_elapsed_enabled=0
-  bleopt exec_errexit_mark= exec_exit_mark=
-  ble-bind -m emacs -f 'C-S-up' '@marked backward-line'
-  ble-bind -m emacs -f 'C-S-down' '@marked forward-line'
-  ble-bind -m emacs -f 'C-S-left' '@marked backward-cword'
-  ble-bind -m emacs -f 'C-S-right' '@marked forward-cword'
-  ble-bind -m selection -f 'C-S-up' backward-line
-  ble-bind -m selection -f 'C-S-down' forward-line
-fi
+write ~/.config/herdr/readline.inputrc <<'EOF'
+# Highlight marked regions in Bash Readline.
+set enable-active-region on
+
+# Option+Shift+Left/Right: select one word at a time.
+"\e[1;6D": "\C-@\eb"
+"\e[1;6C": "\C-@\ef"
+# macOS Ghostty reports Option+Shift with modifier 4.
+"\e[1;4D": "\C-@\eb"
+"\e[1;4C": "\C-@\ef"
+
+# Command+Shift+Left/Right: select to line start/end.
+"\e[1;2H": "\C-@\C-a"
+"\e[1;2F": "\C-@\C-e"
+# Command+Shift+Up/Down: select to buffer start/end.
+"\e[1;6H": "\C-@\C-a"
+"\e[1;6F": "\C-@\C-e"
 EOF
 
-# Remove the Readline selection override from the earlier installer revision.
-if [ -f ~/.inputrc ] && grep -Fq '$include ~/.config/herdr/readline.inputrc' ~/.inputrc; then
-  rc_tmp=$(mktemp)
-  sed '\|^\$include ~/.config/herdr/readline.inputrc$|d' ~/.inputrc > "$rc_tmp"
-  if grep -q '[^[:space:]]' "$rc_tmp"; then
+# Load the managed Readline bindings without replacing the user's inputrc.
+if [ -f ~/.inputrc ]; then
+  if ! grep -Fqx '$include ~/.config/herdr/readline.inputrc' ~/.inputrc; then
+    rc_tmp=$(mktemp)
+    cat ~/.inputrc > "$rc_tmp"
+    printf '\n$include ~/.config/herdr/readline.inputrc\n' >> "$rc_tmp"
     write ~/.inputrc < "$rc_tmp"
-  else
-    mkdir -p "$BACKUP"
-    backup_file="$BACKUP/.inputrc"
-    [ -e "$backup_file" ] || cp ~/.inputrc "$backup_file"
-    rm ~/.inputrc
+    rm "$rc_tmp"
   fi
-  rm "$rc_tmp"
+else
+  write ~/.inputrc <<'EOF'
+$include ~/.config/herdr/readline.inputrc
+EOF
 fi
-if [ -f ~/.config/herdr/readline.inputrc ] &&
-   grep -Fq 'Cmd+Shift+Arrow (Ctrl+Shift on this Linux profile)' ~/.config/herdr/readline.inputrc; then
+
+# Remove the obsolete ble.sh startup support and its generated settings file.
+if [ -f ~/.config/herdr/selection.bash ]; then
   mkdir -p "$BACKUP"
-  backup_file="$BACKUP/.config_herdr_readline.inputrc"
-  [ -e "$backup_file" ] || cp ~/.config/herdr/readline.inputrc "$backup_file"
-  rm ~/.config/herdr/readline.inputrc
+  backup_file="$BACKUP/.config_herdr_selection.bash"
+  [ -e "$backup_file" ] || cp ~/.config/herdr/selection.bash "$backup_file"
+  rm ~/.config/herdr/selection.bash
 fi
 
 # --- Bash and migration from the previous zsh setup ----------------------------
@@ -501,16 +499,12 @@ if ! grep -q '.config/herdr/herdr.bash' ~/.bashrc 2>/dev/null; then
   rm "$rc_tmp"
 fi
 
-# Rebuild only our managed header; load ble.sh before interactive startup.
+# Rebuild only our managed Bash startup header.
 rc_tmp=$(mktemp)
 cat > "$rc_tmp" <<'EOF'
 # dev-setup: begin Bash startup
 _DEV_SETUP_BASHRC_LOADED=1
 source "$HOME/.config/herdr/platform.bash"
-# dev-setup: load Bash selection support
-if [[ $- == *i* && ! ${BLE_VERSION:-} && -r ~/.local/share/blesh/ble.sh ]]; then
-  source -- ~/.local/share/blesh/ble.sh --attach=none
-fi
 # dev-setup: end Bash startup
 EOF
 sed -e '/^# dev-setup: begin Bash startup$/,/^# dev-setup: end Bash startup$/d' \
@@ -524,14 +518,12 @@ sed -e '/^# dev-setup: enable Bash selection support after other shell settings$
     -e '/^# dev-setup: GVM and Starship$/d' \
     -e '/^# dev-setup: finish interactive shell startup$/d' \
     -e '/^source ~\/.config\/herdr\/shell.bash$/d' \
-    -e '/^source ~\/.config\/herdr\/selection.bash$/d' \
+    -e '/^source ~\/.config\/herdr\/selection\.bash$/d' \
     -e '/^if \[\[ \$- == \*i\* && \${BLE_VERSION:-} \]\]; then ble-attach; fi$/d' \
     ~/.bashrc > "$rc_tmp"
 cat >> "$rc_tmp" <<'EOF'
 # dev-setup: finish interactive shell startup
 source ~/.config/herdr/shell.bash
-source ~/.config/herdr/selection.bash
-if [[ $- == *i* && ${BLE_VERSION:-} ]]; then ble-attach; fi
 EOF
 if ! cmp -s ~/.bashrc "$rc_tmp"; then write ~/.bashrc < "$rc_tmp"; fi
 rm "$rc_tmp"

@@ -149,6 +149,10 @@ delete = C-delete
 
 # Consume Shift explicitly so Mac-style shifted screenshot chords also work.
 [mac_command+shift]
+left = S-home
+right = S-end
+up = S-C-home
+down = S-C-end
 3 = S-print
 4 = macro(print 250ms s)
 5 = print

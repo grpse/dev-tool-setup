@@ -109,8 +109,7 @@ source "$HOME/.gvm/environments/default"
 
     def verify_startup(self, login=False):
         rc = ".bash_profile" if login else ".bashrc"
-        # Source under an interactive shell: the fixture ble-attach fails if
-        # Starship hasn't initialized yet. This also tests profile double loading.
+        # Source under an interactive shell to check managed startup loading.
         result = subprocess.run([BASH, "--noprofile", "--norc", "-ic", f'''
 source "$HOME/{rc}"
 [[ $USER_SETTING == preserved ]] || exit 81

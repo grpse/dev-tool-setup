@@ -85,6 +85,9 @@ then restores the original source list.
 | Command+Q | Close the focused window |
 | Command+Left / Right | Beginning / end of line |
 | Command+Up / Down | Beginning / end of document |
+| Command+Shift+Left / Right | Select to beginning / end of line |
+| Command+Shift+Up / Down | Select to beginning / end of document |
+| Option+Shift+Left / Right | Select by word |
 | Command+Tab | Switch applications |
 | Option+Tab / Option+Shift+Tab | Next / previous window of the current application |
 | Option+Left / Right | Move by word |
