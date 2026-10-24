@@ -1,13 +1,19 @@
 # dev-setup
 
-Install Ghostty, Herdr, Bash, Starship, Go/GVM, and Bash text selection:
+Install Ghostty, Herdr, Bash, Starship, and Go/GVM:
 
 ```sh
-bash install.sh
+./install.sh
 ```
 
+Run it as your desktop user, without `sudo`. It installs only missing packages,
+leaves identical configuration files and the active keyboard profile alone, and
+configures the MX Keys Mini on Ubuntu/GNOME when that profile needs updating.
+If it needs a system change but was launched without a terminal for sudo, it
+prints a command to run from a terminal instead of failing the whole install.
+
 On macOS, install [Homebrew](https://brew.sh) first. The installer uses Homebrew
-Bash rather than the system Bash, installs `gawk` for ble.sh, and writes Ghostty's
+Bash rather than the system Bash and writes Ghostty's
 native configuration under `~/Library/Application Support/com.mitchellh.ghostty/`.
 Both GUI launches and Bash startup load the Homebrew environment. Herdr uses login
 Bash on macOS and interactive non-login Bash on Linux; existing login settings are
@@ -26,16 +32,12 @@ and managed Bash startup entries are backed up under
 | Close pane (confirm with Y, Enter) | Prefix, X | Prefix, X |
 | Close whole tab (confirm with Y, Enter) | Prefix, Shift+X | Prefix, Shift+X |
 | Clear pane | Cmd+K | Ctrl+K |
-| Select command text | Shift+Arrow | Shift+Arrow |
-| Select command text by word | Option+Shift+Left/Right | Ctrl+Shift+Left/Right |
-| Select to beginning/end of line | Cmd+Shift+Left/Right | Shift+Home/End |
 | Enter output selection mode | Cmd+Shift+Space or Prefix, [ | Ctrl+Shift+Space or Prefix, [ |
 
-In output selection mode, press Space to start selection, use arrows to extend it,
-and Enter to copy; Esc exits. macOS keeps Ghostty's native Cmd+C/Cmd+V copy/paste.
+In output selection mode, press Space to start selection, use arrows to extend
+it, and Enter to copy; Esc exits. macOS keeps Ghostty's native Cmd+C/Cmd+V
+copy/paste.
 
-Starship is initialized before ble.sh draws the first prompt. Extra ble.sh exit
-status labels are disabled; command errors and Starship's error indicator remain.
 Close popups use Herdr's active pane/tab IDs and the managed launcher, so they work
 even when the popup's PATH does not contain Herdr.
 
@@ -51,20 +53,25 @@ Installer integration checks run in temporary homes with mocked installers:
 python3 -m unittest discover -s tests -v
 ```
 
-## Mac-style MX Keys Mini on Ubuntu/GNOME
+## Keyboard setup by platform
 
-Run the single setup script **as your regular desktop user**. It asks for sudo
-only to install/reload the keyboard profile and clean the previous system map:
+Run `bash install.sh` as your regular user on both platforms. macOS gets its
+Ghostty shortcuts from the installer. On Ubuntu/GNOME, the installer also runs
+`configure_keyboard.sh` when it detects the MX Keys Mini; that script asks for
+sudo to install/reload the device profile and clean the previous system map.
+Headless Linux and Linux sessions without that keyboard skip this system step.
+To apply the MX Keys Mini profile manually later, run `bash configure_keyboard.sh`
+from GNOME; reset it with `bash configure_keyboard.sh --reset`.
 
-```sh
-bash configure_keyboard.sh
-```
+### Mac-style MX Keys Mini on Ubuntu/GNOME
 
-This uses [keyd](https://github.com/rvaiya/keyd), which handles input before
+The keyboard script runs as your desktop user. It uses
+[keyd](https://github.com/rvaiya/keyd), which handles input before
 Wayland/X11 applications receive it. The profile matches the connected **MX Keys
 Mini device ID**, and keeps the physical Left Ctrl key as Ctrl. It removes the
 conflicting mappings left by the earlier scripts from both GNOME and
 `/etc/default/keyboard`; unrelated XKB options remain configured.
+
 It also enables `fkeys:basic_13-24`: Ubuntu otherwise translates the profile's
 F13 launcher key into `XF86Tools`, which opens Settings. Reset restores whether
 this function-key option was configured before setup.
@@ -77,7 +84,6 @@ then restores the original source list.
 | Command+Space | Show Applications grid; type to search apps |
 | Command+Q | Close the focused window |
 | Command+Left / Right | Beginning / end of line |
-| Command+Shift+Left / Right | Select to beginning / end of line |
 | Command+Up / Down | Beginning / end of document |
 | Command+Tab | Switch applications |
 | Option+Tab / Option+Shift+Tab | Next / previous window of the current application |

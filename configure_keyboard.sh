@@ -289,11 +289,41 @@ def apply_desktop(Gio, GLib, state):
     refresh_keymap(Gio, GLib)
 
 
+def already_configured(Gio, expected_profile):
+    if not PROFILE.is_file() or PROFILE.read_text() != expected_profile:
+        return False
+    if not shutil.which('keyd') or subprocess.run(
+            ['systemctl', 'is-active', '--quiet', 'keyd']).returncode != 0:
+        return False
+
+    expected = {
+        ('org.gnome.shell.keybindings', 'toggle-application-view'): 'F13',
+        ('org.gnome.desktop.wm.keybindings', 'close'): 'F14',
+        ('org.gnome.shell.keybindings', 'screenshot'): '<Shift>Print',
+        ('org.gnome.shell.keybindings', 'show-screenshot-ui'): 'Print',
+    }
+    for (schema, key), binding in expected.items():
+        if binding not in Gio.Settings.new(schema).get_strv(key):
+            return False
+    if 'F13' in Gio.Settings.new('org.gnome.shell.keybindings').get_strv('toggle-overview'):
+        return False
+    if Gio.Settings.new('org.gnome.desktop.interface').get_string('gtk-key-theme') != 'Default':
+        return False
+    options = Gio.Settings.new('org.gnome.desktop.input-sources').get_strv('xkb-options')
+    if BASIC_FKEYS not in options or LEGACY.intersection(options):
+        return False
+    keyboard = Path('/etc/default/keyboard')
+    if keyboard.exists() and any(option in keyboard.read_text() for option in LEGACY):
+        return False
+    return True
+
+
 def main():
     parser = argparse.ArgumentParser(prog='configure_keyboard.sh', description='Mac-style MX Keys Mini shortcuts through keyd on Ubuntu/GNOME.')
     group = parser.add_mutually_exclusive_group()
     group.add_argument('--reset', '-r', action='store_true', help='remove this keyd profile and restore desktop shortcuts')
     group.add_argument('--status', action='store_true', help='show configuration and service state without changing anything')
+    group.add_argument('--check', action='store_true', help='check whether the profile and GNOME shortcuts already match')
     group.add_argument('--diagnose', action='store_true', help='show raw modifier events for 30 seconds (sudo required)')
     group.add_argument('--print-config', action='store_true', help='print the proposed keyd profile without applying it')
     parser.add_argument('--cmd-key', choices=['alt', 'meta'], default='alt',
@@ -316,6 +346,16 @@ def main():
         print('System keyboard defaults:\n' + Path('/etc/default/keyboard').read_text())
         subprocess.run(['journalctl', '-u', 'keyd', '-n', '12', '--no-pager'], check=False)
         return
+    if args.check:
+        if not ids:
+            print('MX Keys Mini not detected.')
+            return 1
+        Gio, _ = desktop()
+        if already_configured(Gio, config(ids, args.cmd_key)):
+            print('MX Keys Mini profile is already configured.')
+            return 0
+        print('MX Keys Mini profile needs configuration.')
+        return 1
     if args.diagnose:
         print('Press ONLY left Command, right Command, Option, and Ctrl; note the MX Keys Mini event names.', flush=True)
         print('The monitor exits after 30 seconds. No log file is saved.', flush=True)
@@ -328,11 +368,15 @@ def main():
     Gio, GLib = desktop()
     if not args.reset and not ids:
         sys.exit('Connect the MX Keys Mini first so its device ID can be detected.')
+    state = json.loads(STATE.read_text()) if STATE.exists() else None
+    profile = config(ids, args.cmd_key)
+    if already_configured(Gio, profile):
+        print('MX Keys Mini profile and GNOME shortcuts are already configured; nothing to change.')
+        return
     # Authentication happens before any changes to the desktop or system files.
     run(['sudo', '-v'])
     if not args.reset and not shutil.which('keyd'):
         run(['sudo', 'apt-get', 'install', '-y', 'keyd'])
-    state = json.loads(STATE.read_text()) if STATE.exists() else None
     if args.reset:
         run(['sudo', '/usr/bin/python3', '-c', ROOT_HELPER, 'reset', ''])
         restore_desktop(Gio, GLib, state)
@@ -349,7 +393,6 @@ def main():
             json.dump(state, saved)
             temporary = saved.name
         os.replace(temporary, STATE)
-    profile = config(ids, args.cmd_key)
     started = int(time.time())
     run(['sudo', '/usr/bin/python3', '-c', ROOT_HELPER, 'apply', profile])
     apply_desktop(Gio, GLib, state)
@@ -374,7 +417,7 @@ def main():
 
 
 try:
-    main()
+    sys.exit(main() or 0)
 except (subprocess.CalledProcessError, OSError, ValueError) as error:
     sys.exit(str(error))
 PY

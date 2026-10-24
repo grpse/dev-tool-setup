@@ -57,7 +57,6 @@ case "$1" in
   install)
     case "$2" in
       bash) ln -s "$TEST_REAL_BASH" "$TEST_BREW_PREFIX/bin/bash" ;;
-      gawk) ln -s "$TEST_REAL_AWK" "$TEST_BREW_PREFIX/bin/gawk" ;;
       *) echo "Unexpected brew install: $*" >&2; exit 99 ;;
     esac ;;
 esac
@@ -82,17 +81,6 @@ gvm_go_name=go1.24.6
 gvm() { :; }
 source "$HOME/.gvm/environments/default"
 ''')
-        ble = self.home / ".local/share/blesh/ble.sh"
-        ble.parent.mkdir(parents=True)
-        ble.write_text('''
-BLE_VERSION=test
-bleopt() { :; }
-ble-bind() { :; }
-ble-attach() {
-  [[ ${_DEV_SETUP_STARSHIP_READY:-} == 1 ]] || return 91
-  printf 'attached\\n' >> "$HOME/attach-calls"
-}
-''')
         self.original_rc = "# user settings\nexport USER_SETTING=preserved\n"
         (self.home / ".bashrc").write_text(self.original_rc)
         if login_file:
@@ -101,7 +89,8 @@ ble-attach() {
                 '[[ ! -r "$HOME/.bashrc" ]] || source "$HOME/.bashrc"\n')
         self.env = dict(os.environ, HOME=str(self.home), PATH=str(self.bin),
                         TEST_BREW_PREFIX=str(self.prefix), TEST_REAL_BASH=BASH,
-                        TEST_REAL_AWK=shutil.which("awk"), TEST_REAL_HERDR=HERDR or "",
+                        TEST_REAL_HERDR=HERDR or "",
+                        DEV_SETUP_SKIP_KEYBOARD="1",
                         TERM="dumb")
         for key in ("BASH_ENV", "ENV", "DEV_SETUP_GO_VERSION", "HERDR_CONFIG_PATH",
                     "HERDR_TAB_ID", "HERDR_WORKSPACE_ID"):
@@ -131,7 +120,6 @@ go version
 '''], env=self.env, text=True, capture_output=True, timeout=10)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("go version go1.24.6", result.stdout)
-        self.assertEqual((self.home / "attach-calls").read_text(), "attached\n")
 
     def verify_rerun(self):
         paths = [self.home / ".bashrc", self.home / ".bash_profile"]
@@ -151,7 +139,8 @@ go version
         self.assertEqual(config["terminal"]["shell_mode"], "non_login")
         self.assertFalse((self.home / ".bash_profile").exists())
         self.assertTrue((self.home / ".config/ghostty/config").exists())
-        self.assertIn("keybind = ctrl+w=unbind", (self.home / ".config/ghostty/config").read_text())
+        ghostty = (self.home / ".config/ghostty/config").read_text()
+        self.assertIn("keybind = ctrl+w=unbind", ghostty)
         self.assertNotIn("macos-option", (self.home / ".config/ghostty/config").read_text())
         self.assertTrue(tomllib.loads((self.home / ".config/starship.toml").read_text())["golang"]["disabled"])
         self.verify_startup()
@@ -167,7 +156,6 @@ go version
         self.assertEqual(config["terminal"]["shell_mode"], "login")
         calls = (self.home / "brew-calls").read_text()
         self.assertIn("install bash\n", calls)
-        self.assertIn("install gawk\n", calls)
         self.assertNotIn("install --cask font", calls)
         ghostty = self.home / "Library/Application Support/com.mitchellh.ghostty/config.ghostty"
         self.assertIn("cmd+shift+left=csi:1;2H", ghostty.read_text())

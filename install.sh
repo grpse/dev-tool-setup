@@ -4,12 +4,25 @@
 # any existing configs to ~/.config/dev-setup-backup/<timestamp>/, then writes them.
 set -euo pipefail
 
+if [ "${EUID:-$(id -u)}" -eq 0 ]; then
+  echo "Run ./install.sh as your desktop user, without sudo." >&2
+  exit 1
+fi
+
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 BACKUP=~/.config/dev-setup-backup/$(date +%Y%m%d-%H%M%S)
 
 # write <target> : stdin -> target, backing up an existing real file first
 write() {
-  local backup_file
+  local backup_file tmp
   mkdir -p "$(dirname "$1")"
+  tmp=$(mktemp)
+  cat > "$tmp"
+  if [ ! -L "$1" ] && [ -f "$1" ] && cmp -s "$tmp" "$1"; then
+    rm "$tmp"
+    echo "unchanged $1"
+    return
+  fi
   if [ -L "$1" ]; then rm "$1"
   elif [ -e "$1" ]; then
     mkdir -p "$BACKUP"
@@ -17,7 +30,8 @@ write() {
     # A startup file can be updated several times during one run.
     [ -e "$backup_file" ] || cp "$1" "$backup_file"
   fi
-  cat > "$1"
+  cat "$tmp" > "$1"
+  rm "$tmp"
   echo "wrote $1"
 }
 
@@ -66,7 +80,6 @@ missing=()
 # Install Bash and git before the shell integrations that use them.
 [ -n "$BASH_BIN" ] && [ -x "$BASH_BIN" ] || missing+=(bash)
 command -v git >/dev/null      || missing+=(git)
-if [ "$OS" = Darwin ]; then command -v gawk >/dev/null || missing+=(gawk); fi
 has_ghostty                   || missing+=(ghostty)
 has_font                      || missing+=(jetbrains-mono-nerd-font)
 command -v jq >/dev/null       || missing+=(jq)
@@ -96,7 +109,7 @@ for p in ${missing[@]+"${missing[@]}"}; do
   case "$OS:$p" in
     Darwin:ghostty)                   brew install --cask ghostty ;;
     Darwin:jetbrains-mono-nerd-font)  brew install --cask font-jetbrains-mono-nerd-font ;;
-    Darwin:jq|Darwin:bash|Darwin:starship|Darwin:git|Darwin:gawk|Darwin:herdr) brew install "$p" ;;
+    Darwin:jq|Darwin:bash|Darwin:starship|Darwin:git|Darwin:herdr) brew install "$p" ;;
     Linux:jq|Linux:bash|Linux:git)     pkg_install "$p" || manual+=("$p") ;;
     Linux:starship)                   curl -fsSL https://starship.rs/install.sh | sh -s -- -y -b ~/.local/bin ;;
     Linux:ghostty)                    manual+=("ghostty (see https://ghostty.org/docs/install/binary)") ;;
@@ -230,7 +243,7 @@ EOF
 if [ "$OS" = Darwin ]; then
   cat >> "$GHOSTTY_CONFIG" <<'EOF'
 
-# Option edits by word; Cmd+Shift+arrows extends selection to line/buffer edges.
+# Option edits by word; pass shifted Option arrows through to the shell.
 macos-option-as-alt = true
 keybind = alt+shift+left=unbind
 keybind = alt+shift+right=unbind
@@ -429,11 +442,10 @@ fi
 EOF
 
 write ~/.config/herdr/selection.bash <<'EOF'
-# ble.sh adds Shift selection while retaining the configured Bash prompt.
+# ble.sh provides marked command-line selection for Shift+Arrow shortcuts.
 if declare -F bleopt >/dev/null; then
   bleopt complete_auto_complete= highlight_syntax= highlight_filename= highlight_variable=
   bleopt exec_elapsed_enabled=0
-  # Starship already indicates failed commands; keep ble.sh's extra labels quiet.
   bleopt exec_errexit_mark= exec_exit_mark=
   ble-bind -m emacs -f 'C-S-up' '@marked backward-line'
   ble-bind -m emacs -f 'C-S-down' '@marked forward-line'
@@ -443,6 +455,28 @@ if declare -F bleopt >/dev/null; then
   ble-bind -m selection -f 'C-S-down' forward-line
 fi
 EOF
+
+# Remove the Readline selection override from the earlier installer revision.
+if [ -f ~/.inputrc ] && grep -Fq '$include ~/.config/herdr/readline.inputrc' ~/.inputrc; then
+  rc_tmp=$(mktemp)
+  sed '\|^\$include ~/.config/herdr/readline.inputrc$|d' ~/.inputrc > "$rc_tmp"
+  if grep -q '[^[:space:]]' "$rc_tmp"; then
+    write ~/.inputrc < "$rc_tmp"
+  else
+    mkdir -p "$BACKUP"
+    backup_file="$BACKUP/.inputrc"
+    [ -e "$backup_file" ] || cp ~/.inputrc "$backup_file"
+    rm ~/.inputrc
+  fi
+  rm "$rc_tmp"
+fi
+if [ -f ~/.config/herdr/readline.inputrc ] &&
+   grep -Fq 'Cmd+Shift+Arrow (Ctrl+Shift on this Linux profile)' ~/.config/herdr/readline.inputrc; then
+  mkdir -p "$BACKUP"
+  backup_file="$BACKUP/.config_herdr_readline.inputrc"
+  [ -e "$backup_file" ] || cp ~/.config/herdr/readline.inputrc "$backup_file"
+  rm ~/.config/herdr/readline.inputrc
+fi
 
 # --- Bash and migration from the previous zsh setup ----------------------------
 # Preserve user startup settings, removing only the old setup integrations.
@@ -467,7 +501,7 @@ if ! grep -q '.config/herdr/herdr.bash' ~/.bashrc 2>/dev/null; then
   rm "$rc_tmp"
 fi
 
-# Rebuild only our managed header; Homebrew must be ready before ble.sh loads.
+# Rebuild only our managed header; load ble.sh before interactive startup.
 rc_tmp=$(mktemp)
 cat > "$rc_tmp" <<'EOF'
 # dev-setup: begin Bash startup
@@ -480,19 +514,17 @@ fi
 # dev-setup: end Bash startup
 EOF
 sed -e '/^# dev-setup: begin Bash startup$/,/^# dev-setup: end Bash startup$/d' \
-    -e '/^# dev-setup: load Bash selection support$/,/^fi$/d' \
     ~/.bashrc >> "$rc_tmp"
 if ! cmp -s ~/.bashrc "$rc_tmp"; then write ~/.bashrc < "$rc_tmp"; fi
 rm "$rc_tmp"
 
-# Register prompt hooks before ble-attach draws the first prompt.
 # Rebuild this small managed tail so reruns also migrate the old startup order.
 rc_tmp=$(mktemp)
 sed -e '/^# dev-setup: enable Bash selection support after other shell settings$/d' \
     -e '/^# dev-setup: GVM and Starship$/d' \
     -e '/^# dev-setup: finish interactive shell startup$/d' \
-    -e '/^source ~\/.config\/herdr\/selection.bash$/d' \
     -e '/^source ~\/.config\/herdr\/shell.bash$/d' \
+    -e '/^source ~\/.config\/herdr\/selection.bash$/d' \
     -e '/^if \[\[ \$- == \*i\* && \${BLE_VERSION:-} \]\]; then ble-attach; fi$/d' \
     ~/.bashrc > "$rc_tmp"
 cat >> "$rc_tmp" <<'EOF'
@@ -531,4 +563,22 @@ fi
 
 herdr config check
 herdr server reload-config >/dev/null 2>&1 || true
+if [ "$OS" = Linux ] && [ "${DEV_SETUP_SKIP_KEYBOARD:-0}" != 1 ]; then
+  if [ -r /proc/bus/input/devices ] && grep -qi 'MX Keys Mini' /proc/bus/input/devices; then
+    if [[ ${XDG_CURRENT_DESKTOP:-} == *GNOME* || -n ${GNOME_DESKTOP_SESSION_ID:-} ]]; then
+      if bash "$SCRIPT_DIR/configure_keyboard.sh" --check; then
+        : # The profile and desktop bindings already match; avoid sudo and rewrites.
+      elif [ -t 0 ] && [ -t 1 ]; then
+        echo "Configuring MX Keys Mini shortcuts..."
+        bash "$SCRIPT_DIR/configure_keyboard.sh"
+      else
+        echo "MX Keys Mini setup is needed. Run bash configure_keyboard.sh from a terminal to authorize the system profile."
+      fi
+    else
+      echo "MX Keys Mini detected outside GNOME; run configure_keyboard.sh from GNOME to install its system keyboard profile."
+    fi
+  else
+    echo "MX Keys Mini not detected; skipping its system keyboard profile."
+  fi
+fi
 echo "Done. Open a new Ghostty window."
