@@ -1,5 +1,8 @@
 """Check profile generation without touching the live keyboard or system."""
 import os
+import json
+import sys
+import types
 from pathlib import Path
 import subprocess
 import tempfile
@@ -23,7 +26,7 @@ class KeyboardTests(unittest.TestCase):
     def test_deepin_profile_and_selection(self):
         profile = self.module['config'](['046d:b369'], 'alt', True)
         for mapping in ('leftalt = layer(mac_command)', 'space = C-M-space', 'q = A-f4',
-                        '4 = C-A-a', 'tab = swapm(mac_group_switch, A-grave)', 'left = S-home', 'right = S-end',
+                        '4 = C-A-a', 'backspace = delete', 'tab = swapm(mac_group_switch, A-grave)', 'left = S-home', 'right = S-end',
                         'up = S-C-home', 'down = S-C-end'):
             self.assertIn(mapping, profile)
         self.assertIn('[mac_command:C]', profile)
@@ -76,6 +79,33 @@ class KeyboardTests(unittest.TestCase):
                 self.module['kwin_switcher'](False)
                 self.assertEqual(original, config.read_text())
                 self.assertFalse(state.exists())
+
+    def test_live_search_rerun_handles_null_conflict_accelerators(self):
+        shortcuts = [
+            {'Id': 'globalSearch', 'Type': 0, 'Accels': ['<Control><Super>space']},
+            {'Id': 'UOS AI Talk', 'Type': 1, 'Accels': None},
+        ]
+        calls = []
+        class Reply:
+            def unpack(self):
+                return (json.dumps(shortcuts),)
+        class Bus:
+            def call_sync(self, *args):
+                calls.append(args[3])
+                return Reply()
+        gio = types.SimpleNamespace(bus_get_sync=lambda *args: Bus(),
+                                    BusType=types.SimpleNamespace(SESSION=0),
+                                    DBusCallFlags=types.SimpleNamespace(NONE=0))
+        glib = types.SimpleNamespace(Variant=lambda *args: args)
+        modules = {'gi': types.ModuleType('gi'), 'gi.repository': types.SimpleNamespace(Gio=gio, GLib=glib)}
+        with tempfile.TemporaryDirectory() as temp, patch.dict(sys.modules, modules):
+            state = Path(temp) / 'state.json'
+            state.write_text(json.dumps({'search': ['<Shift>space'], 'conflicts': [
+                {'Id': 'UOS AI Talk', 'Type': 1, 'shortcut': '<Control><Super>space'}]}))
+            with patch.dict(self.module, DEEPIN_LIVE_STATE=state):
+                self.module['deepin_live_search'](True)
+            self.assertEqual(calls, ['ListAllShortcuts'])
+            self.assertTrue(state.exists())
 
     def test_ghostty_selection_is_idempotent_and_reversible(self):
         with tempfile.TemporaryDirectory() as temp, patch.dict(os.environ, XDG_CONFIG_HOME=temp):

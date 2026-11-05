@@ -136,6 +136,8 @@ def config(ids, cmd_key, deepin=False):
 # All unspecified Command combinations behave as Control combinations.
 # Physical Left Ctrl retains its normal function, including terminal interrupts.
 [mac_command:C]
+# Delete selected files or other items using the Mac-style shortcut.
+backspace = delete
 space = f13
 q = f14
 # Print opens GNOME's screenshot UI; S selects area mode (crosshair drag).
@@ -434,6 +436,67 @@ def deepin_search(apply):
     Gio.Settings.sync()
 
 
+DEEPIN_LIVE_STATE = STATE.parent / 'deepin-live-search.json'
+
+
+def deepin_live_search(apply):
+    from gi.repository import Gio, GLib
+    bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
+    def call(method, signature=None, values=()):
+        result = bus.call_sync('org.deepin.dde.Keybinding1', '/org/deepin/dde/Keybinding1',
+                               'org.deepin.dde.Keybinding1', method,
+                               GLib.Variant(signature, values) if signature else None,
+                               None, Gio.DBusCallFlags.NONE, -1, None)
+        return result.unpack()
+    def change(method, item, shortcut):
+        call(method, '(sis)', (item['Id'], item['Type'], shortcut))
+    if apply:
+        shortcuts = json.loads(call('ListAllShortcuts')[0])
+        search = next(item for item in shortcuts if item['Id'] == 'globalSearch' and item['Type'] == 0)
+        if not DEEPIN_LIVE_STATE.exists():
+            conflicts = [{'Id': item['Id'], 'Type': item['Type'], 'shortcut': shortcut}
+                         for item in shortcuts if item is not search for shortcut in (item.get('Accels') or [])
+                         if shortcut.lower() == SEARCH_SHORTCUT.lower()]
+            DEEPIN_LIVE_STATE.parent.mkdir(parents=True, exist_ok=True)
+            DEEPIN_LIVE_STATE.write_text(json.dumps({'search': (search.get('Accels') or []), 'conflicts': conflicts}))
+        state = json.loads(DEEPIN_LIVE_STATE.read_text())
+        for conflict in state['conflicts']:
+            item = next((item for item in shortcuts if item['Id'] == conflict['Id'] and item['Type'] == conflict['Type']), None)
+            if item and conflict['shortcut'] in (item.get('Accels') or []):
+                change('DeleteShortcutKeystroke', item, conflict['shortcut'])
+        for shortcut in (search.get('Accels') or []):
+            if shortcut.lower() == '<shift>space':
+                change('DeleteShortcutKeystroke', search, shortcut)
+        if SEARCH_SHORTCUT not in (search.get('Accels') or []):
+            change('AddShortcutKeystroke', search, SEARCH_SHORTCUT)
+    elif DEEPIN_LIVE_STATE.exists():
+        state = json.loads(DEEPIN_LIVE_STATE.read_text())
+        search = {'Id': 'globalSearch', 'Type': 0}
+        current = json.loads(call('GetShortcut', '(si)', ('globalSearch', 0))[0]).get('Accels') or []
+        if SEARCH_SHORTCUT in current and SEARCH_SHORTCUT not in state['search']:
+            change('DeleteShortcutKeystroke', search, SEARCH_SHORTCUT)
+        for shortcut in state['search']:
+            if shortcut not in current:
+                change('AddShortcutKeystroke', search, shortcut)
+        for conflict in state['conflicts']:
+            change('AddShortcutKeystroke', conflict, conflict['shortcut'])
+        DEEPIN_LIVE_STATE.unlink()
+
+
+def deepin_live_search_matches():
+    try:
+        from gi.repository import Gio, GLib
+        bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
+        result = bus.call_sync('org.deepin.dde.Keybinding1', '/org/deepin/dde/Keybinding1',
+                               'org.deepin.dde.Keybinding1', 'GetShortcut',
+                               GLib.Variant('(si)', ('globalSearch', 0)), None,
+                               Gio.DBusCallFlags.NONE, -1, None)
+        values = json.loads(result.unpack()[0]).get('Accels') or []
+        return SEARCH_SHORTCUT in values and not any(v.lower() == '<shift>space' for v in values)
+    except Exception:
+        return False
+
+
 KWIN_CONFIG = Path(os.environ.get('XDG_CONFIG_HOME', str(Path.home() / '.config'))) / 'kwinrc'
 KWIN_STATE = STATE.parent / 'deepin-kwin-switcher.json'
 
@@ -510,7 +573,7 @@ def main():
             return 1
         if deepin:
             if (PROFILE.is_file() and PROFILE.read_text() == config(ids, args.cmd_key, True)
-                    and keyd_command() and deepin_search_matches() and KWIN_STATE.exists()
+                    and keyd_command() and deepin_search_matches() and deepin_live_search_matches() and KWIN_STATE.exists()
                     and 'ApplicationsMode=1' in KWIN_CONFIG.read_text() and not ACUTE_STATE.exists()
                     and subprocess.run(['systemctl', 'is-active', '--quiet', 'keyd']).returncode == 0):
                 print('MX Keys Mini profile is already configured.')
@@ -551,6 +614,7 @@ def main():
             sys.exit('Keyd reported an error; run bash configure_keyboard.sh --status to inspect its log.\n' + recent.stdout)
         remove_legacy_acute()
         deepin_search(not args.reset)
+        deepin_live_search(not args.reset)
         kwin_switcher(not args.reset)
         ghostty_selection(not args.reset)
         print('Removed the MX Keys Mini profile.' if args.reset else

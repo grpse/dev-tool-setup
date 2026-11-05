@@ -84,7 +84,8 @@ types tilde (~). The script removes the former managed acute-key mapping.
 Command acts like Ctrl for application shortcuts. Command+Shift+Left/Right
 selects to the beginning/end of a line; Command+Shift+Up/Down selects to the
 beginning/end of a document. Option+Shift+Left/Right selects by word.
-Command+Space opens Deepin search, Command+Q closes the window, and Command+Tab
+Command+Space opens Deepin search, Command+Backspace sends Delete for selected
+items, Command+Q closes the window, and Command+Tab
 switches applications; Option+Tab switches windows of the current application.
 Hold Shift to reverse either switcher. Command+Space opens search without
 assigning search to Shift+Space. Command+3 captures the screen; Command+4 or Command+5
