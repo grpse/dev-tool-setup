@@ -86,6 +86,7 @@ command -v jq >/dev/null       || missing+=(jq)
 command -v herdr >/dev/null    || missing+=(herdr)
 command -v starship >/dev/null || missing+=(starship)
 [ -s ~/.gvm/scripts/gvm ]      || missing+=(gvm)
+[ -f ~/.local/share/blesh/ble.sh ] || missing+=(blesh)
 
 if [ ${#missing[@]} -eq 0 ]; then
   echo "All packages present."
@@ -120,6 +121,12 @@ for p in ${missing[@]+"${missing[@]}"}; do
     *:gvm)
       curl -fsSL https://raw.githubusercontent.com/moovweb/gvm/master/binscripts/gvm-installer |
         GVM_NO_UPDATE_PROFILE=1 "${BASH_BIN:-bash}" ;;
+    *:blesh)
+      ble_tmp=$(mktemp -d)
+      curl -fsSL https://github.com/akinomyoga/ble.sh/releases/download/nightly/ble-nightly.tar.xz |
+        tar -xJ -C "$ble_tmp"
+      "${BASH_BIN:-bash}" "$ble_tmp/ble-nightly/ble.sh" --install "$HOME/.local/share"
+      rm -rf "$ble_tmp" ;;
   esac
 done
 if [ ${#manual[@]} -gt 0 ]; then
@@ -228,6 +235,10 @@ keybind = shift+left=unbind
 keybind = shift+right=unbind
 keybind = shift+up=unbind
 keybind = shift+down=unbind
+keybind = shift+home=unbind
+keybind = shift+end=unbind
+keybind = ctrl+shift+home=unbind
+keybind = ctrl+shift+end=unbind
 keybind = ctrl+shift+left=unbind
 keybind = ctrl+shift+right=unbind
 keybind = ctrl+shift+up=unbind
@@ -434,46 +445,41 @@ if command -v starship >/dev/null; then
 fi
 EOF
 
-write ~/.config/herdr/readline.inputrc <<'EOF'
-# Highlight marked regions in Bash Readline.
-set enable-active-region on
-
-# Option+Shift+Left/Right: select one word at a time.
-"\e[1;6D": "\C-@\eb"
-"\e[1;6C": "\C-@\ef"
-# macOS Ghostty reports Option+Shift with modifier 4.
-"\e[1;4D": "\C-@\eb"
-"\e[1;4C": "\C-@\ef"
-
-# Command+Shift+Left/Right: select to line start/end.
-"\e[1;2H": "\C-@\C-a"
-"\e[1;2F": "\C-@\C-e"
-# Command+Shift+Up/Down: select to buffer start/end.
-"\e[1;6H": "\C-@\C-a"
-"\e[1;6F": "\C-@\C-e"
-EOF
-
-# Load the managed Readline bindings without replacing the user's inputrc.
-if [ -f ~/.inputrc ]; then
-  if ! grep -Fqx '$include ~/.config/herdr/readline.inputrc' ~/.inputrc; then
-    rc_tmp=$(mktemp)
-    cat ~/.inputrc > "$rc_tmp"
-    printf '\n$include ~/.config/herdr/readline.inputrc\n' >> "$rc_tmp"
-    write ~/.inputrc < "$rc_tmp"
-    rm "$rc_tmp"
-  fi
-else
-  write ~/.inputrc <<'EOF'
-$include ~/.config/herdr/readline.inputrc
-EOF
+write ~/.config/herdr/selection.bash <<'EOF'
+# ble.sh provides marked command-line selection for Shift+Arrow shortcuts.
+if declare -F bleopt >/dev/null; then
+  bleopt complete_auto_complete= highlight_syntax= highlight_filename= highlight_variable=
+  bleopt exec_elapsed_enabled=0
+  bleopt exec_errexit_mark= exec_exit_mark=
+  ble-bind -m emacs -f 'C-S-up' '@marked backward-line'
+  ble-bind -m emacs -f 'C-S-down' '@marked forward-line'
+  ble-bind -m emacs -f 'C-S-left' '@marked backward-cword'
+  ble-bind -m emacs -f 'C-S-right' '@marked forward-cword'
+  ble-bind -m selection -f 'C-S-up' backward-line
+  ble-bind -m selection -f 'C-S-down' forward-line
 fi
+EOF
 
-# Remove the obsolete ble.sh startup support and its generated settings file.
-if [ -f ~/.config/herdr/selection.bash ]; then
+# Remove the Readline selection override from the earlier installer revision.
+if [ -f ~/.inputrc ] && grep -Fq '$include ~/.config/herdr/readline.inputrc' ~/.inputrc; then
+  rc_tmp=$(mktemp)
+  sed '\|^\$include ~/.config/herdr/readline.inputrc$|d' ~/.inputrc > "$rc_tmp"
+  if grep -q '[^[:space:]]' "$rc_tmp"; then
+    write ~/.inputrc < "$rc_tmp"
+  else
+    mkdir -p "$BACKUP"
+    backup_file="$BACKUP/.inputrc"
+    [ -e "$backup_file" ] || cp ~/.inputrc "$backup_file"
+    rm ~/.inputrc
+  fi
+  rm "$rc_tmp"
+fi
+if [ -f ~/.config/herdr/readline.inputrc ] &&
+   grep -Fq '# Highlight marked regions in Bash Readline.' ~/.config/herdr/readline.inputrc; then
   mkdir -p "$BACKUP"
-  backup_file="$BACKUP/.config_herdr_selection.bash"
-  [ -e "$backup_file" ] || cp ~/.config/herdr/selection.bash "$backup_file"
-  rm ~/.config/herdr/selection.bash
+  backup_file="$BACKUP/.config_herdr_readline.inputrc"
+  [ -e "$backup_file" ] || cp ~/.config/herdr/readline.inputrc "$backup_file"
+  rm ~/.config/herdr/readline.inputrc
 fi
 
 # --- Bash and migration from the previous zsh setup ----------------------------
@@ -505,6 +511,10 @@ cat > "$rc_tmp" <<'EOF'
 # dev-setup: begin Bash startup
 _DEV_SETUP_BASHRC_LOADED=1
 source "$HOME/.config/herdr/platform.bash"
+# dev-setup: load Bash selection support
+if [[ $- == *i* && ! ${BLE_VERSION:-} && -r ~/.local/share/blesh/ble.sh ]]; then
+  source -- ~/.local/share/blesh/ble.sh --attach=none
+fi
 # dev-setup: end Bash startup
 EOF
 sed -e '/^# dev-setup: begin Bash startup$/,/^# dev-setup: end Bash startup$/d' \
@@ -524,6 +534,8 @@ sed -e '/^# dev-setup: enable Bash selection support after other shell settings$
 cat >> "$rc_tmp" <<'EOF'
 # dev-setup: finish interactive shell startup
 source ~/.config/herdr/shell.bash
+source ~/.config/herdr/selection.bash
+if [[ $- == *i* && ${BLE_VERSION:-} ]]; then ble-attach; fi
 EOF
 if ! cmp -s ~/.bashrc "$rc_tmp"; then write ~/.bashrc < "$rc_tmp"; fi
 rm "$rc_tmp"
@@ -557,7 +569,7 @@ herdr config check
 herdr server reload-config >/dev/null 2>&1 || true
 if [ "$OS" = Linux ] && [ "${DEV_SETUP_SKIP_KEYBOARD:-0}" != 1 ]; then
   if [ -r /proc/bus/input/devices ] && grep -qi 'MX Keys Mini' /proc/bus/input/devices; then
-    if [[ ${XDG_CURRENT_DESKTOP:-} == *GNOME* || -n ${GNOME_DESKTOP_SESSION_ID:-} ]]; then
+    if [[ ${XDG_CURRENT_DESKTOP:-} == *GNOME* || ${XDG_CURRENT_DESKTOP:-} == *DDE* || ${XDG_CURRENT_DESKTOP:-} == *deepin* || -n ${GNOME_DESKTOP_SESSION_ID:-} ]]; then
       if bash "$SCRIPT_DIR/configure_keyboard.sh" --check; then
         : # The profile and desktop bindings already match; avoid sudo and rewrites.
       elif [ -t 0 ] && [ -t 1 ]; then
@@ -567,7 +579,7 @@ if [ "$OS" = Linux ] && [ "${DEV_SETUP_SKIP_KEYBOARD:-0}" != 1 ]; then
         echo "MX Keys Mini setup is needed. Run bash configure_keyboard.sh from a terminal to authorize the system profile."
       fi
     else
-      echo "MX Keys Mini detected outside GNOME; run configure_keyboard.sh from GNOME to install its system keyboard profile."
+      echo "MX Keys Mini detected outside GNOME or Deepin; run configure_keyboard.sh from a supported desktop to install its system keyboard profile."
     fi
   else
     echo "MX Keys Mini not detected; skipping its system keyboard profile."

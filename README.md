@@ -8,7 +8,7 @@ Install Ghostty, Herdr, Bash, Starship, and Go/GVM:
 
 Run it as your desktop user, without `sudo`. It installs only missing packages,
 leaves identical configuration files and the active keyboard profile alone, and
-configures the MX Keys Mini on Ubuntu/GNOME when that profile needs updating.
+configures the MX Keys Mini on Deepin or Ubuntu/GNOME when that profile needs updating.
 If it needs a system change but was launched without a terminal for sudo, it
 prints a command to run from a terminal instead of failing the whole install.
 
@@ -34,6 +34,10 @@ and managed Bash startup entries are backed up under
 | Clear pane | Cmd+K | Ctrl+K |
 | Enter output selection mode | Cmd+Shift+Space or Prefix, [ | Ctrl+Shift+Space or Prefix, [ |
 
+Bash uses ble.sh for interactive command-line selection, including Shift+Arrow
+and the configured Command/Option selection shortcuts. Open a new shell after
+installing. Herdr output selection is separate from editing the current command.
+
 In output selection mode, press Space to start selection, use arrows to extend
 it, and Enter to copy; Esc exits. macOS keeps Ghostty's native Cmd+C/Cmd+V
 copy/paste.
@@ -56,12 +60,43 @@ python3 -m unittest discover -s tests -v
 ## Keyboard setup by platform
 
 Run `bash install.sh` as your regular user on both platforms. macOS gets its
-Ghostty shortcuts from the installer. On Ubuntu/GNOME, the installer also runs
+Ghostty shortcuts from the installer. On Deepin or Ubuntu/GNOME, the installer also runs
 `configure_keyboard.sh` when it detects the MX Keys Mini; that script asks for
 sudo to install/reload the device profile and clean the previous system map.
 Headless Linux and Linux sessions without that keyboard skip this system step.
 To apply the MX Keys Mini profile manually later, run `bash configure_keyboard.sh`
-from GNOME; reset it with `bash configure_keyboard.sh --reset`.
+from the desktop; restore it with `bash configure_keyboard.sh revert` (or `--reset`).
+
+### Deepin 25 and Herdr
+
+Run `bash configure_keyboard.sh` in the Deepin session. It installs keyd if needed
+and creates a profile for the connected MX Keys Mini. Run
+`bash configure_keyboard.sh revert` to remove that profile; existing Deepin
+shortcuts are restored and other keyd profiles are left alone. The pictured MX
+Keys Mini for Mac has Control, Option, Command, Space, Command, Option along
+its bottom row. The profile defaults to Mac mode, where Command sends Meta;
+use `--cmd-key alt` if the keyboard is in PC mode. Use `--diagnose` to check
+raw keys and `--print-config` to preview the profile.
+
+With the US English layout, the key left of 1 types backtick (`) and Shift+key
+types tilde (~). The script removes the former managed acute-key mapping.
+
+Command acts like Ctrl for application shortcuts. Command+Shift+Left/Right
+selects to the beginning/end of a line; Command+Shift+Up/Down selects to the
+beginning/end of a document. Option+Shift+Left/Right selects by word.
+Command+Space opens Deepin search, Command+Q closes the window, and Command+Tab
+switches applications; Option+Tab switches windows of the current application.
+Hold Shift to reverse either switcher. Command+Space opens search without
+assigning search to Shift+Space. Command+3 captures the screen; Command+4 or Command+5
+opens Deepin's screenshot tool using its default shortcut. These desktop
+shortcuts depend on Deepin's default bindings.
+
+In Herdr, Command+Shift+Space enters output selection mode; press Space, move
+with the arrows, and press Enter to copy. The keyboard script configures Ghostty
+to pass selection keys through; reload Ghostty or open a new window afterward. Command+C still sends Ctrl+C in terminals,
+which interrupts the foreground process; use the terminal's Ctrl+Shift+C/V
+for clipboard operations. Keyd cannot distinguish a terminal from other apps.
+The profile does not change the keyboard layout or media keys.
 
 ### Mac-style MX Keys Mini on Ubuntu/GNOME
 

@@ -34,6 +34,9 @@ class InstallerTests(unittest.TestCase):
             self.stub(tool, "exit 0\n")
         self.stub("fc-list", "echo 'JetBrainsMono Nerd'\n")
         self.stub("starship", "echo '_DEV_SETUP_STARSHIP_READY=1'\n")
+        ble = self.home / ".local/share/blesh/ble.sh"
+        ble.parent.mkdir(parents=True)
+        ble.write_text("BLE_VERSION=fixture\nbleopt() { :; }\nble-bind() { :; }\nble-attach() { BLE_ATTACHED=1; }\n")
         # Downloads must never happen in these all-present fixtures.
         self.stub("curl", "echo 'Unexpected download' >&2; exit 99\n")
         self.stub("herdr", '''
@@ -115,6 +118,7 @@ source "$HOME/{rc}"
 [[ $USER_SETTING == preserved ]] || exit 81
 [[ {'$LOGIN_SETTING == preserved' if login else '1 == 1'} ]] || exit 82
 declare -F gvm >/dev/null || exit 83
+[[ $BLE_VERSION == fixture && $BLE_ATTACHED == 1 ]] || exit 84
 go version
 '''], env=self.env, text=True, capture_output=True, timeout=10)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
@@ -144,6 +148,18 @@ go version
         self.assertTrue(tomllib.loads((self.home / ".config/starship.toml").read_text())["golang"]["disabled"])
         self.verify_startup()
         self.verify_rerun()
+
+    def test_migrate_managed_readline_selection(self):
+        self.setup_home("Linux")
+        (self.home / ".inputrc").write_text('set bell-style none\n$include ~/.config/herdr/readline.inputrc\n')
+        old = self.home / ".config/herdr/readline.inputrc"
+        old.parent.mkdir(parents=True)
+        old.write_text('# Highlight marked regions in Bash Readline.\n')
+        self.run_installer()
+        self.assertEqual((self.home / ".inputrc").read_text(), 'set bell-style none\n')
+        self.assertFalse(old.exists())
+        self.assertTrue((self.home / ".config/herdr/selection.bash").exists())
+        self.verify_startup()
 
     def test_mac_profile_migration(self):
         self.setup_home("Darwin", ".profile")

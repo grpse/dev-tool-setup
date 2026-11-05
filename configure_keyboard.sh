@@ -31,6 +31,8 @@ KEYS = [
 ROOT_HELPER = r'''
 import pathlib, re, shutil, subprocess, sys
 mode, profile_text = sys.argv[1:]
+deepin = mode.startswith('deepin-')
+mode = mode.removeprefix('deepin-')
 profile = pathlib.Path('/etc/keyd/dev-setup-mx-keys-mini.conf')
 marker = '# Managed by dev-setup configure_keyboard.sh'
 legacy = {'altwin:ctrl_alt_win', 'altwin:swap_alt_win', 'ctrl:swap_lalt_lctl'}
@@ -41,13 +43,16 @@ if profile.is_symlink():
 keyboard = pathlib.Path('/etc/default/keyboard')
 old_keyboard = keyboard.read_text() if keyboard.exists() else None
 old_profile = profile.read_text() if profile.exists() else None
+keyd = shutil.which('keyd') or shutil.which('keyd.rvaiya')
+if mode == 'apply' and not keyd:
+    sys.exit('Cannot find keyd or keyd.rvaiya after installation.')
 
 def clean_options(match):
     options = [o for o in match[2].split(',') if o and o not in legacy]
     return match[1] + ','.join(options) + match[3]
 
 try:
-    if old_keyboard is not None:
+    if old_keyboard is not None and not deepin:
         cleaned = re.sub(r'(^\s*XKBOPTIONS=["\x27])([^"\x27]*)(["\x27])', clean_options,
                          old_keyboard, flags=re.M)
         if cleaned != old_keyboard:
@@ -76,7 +81,9 @@ try:
     else:
         profile.unlink(missing_ok=True)
     if subprocess.run(['systemctl', 'is-active', '--quiet', 'keyd']).returncode == 0:
-        subprocess.run(['keyd', 'reload'], check=True)
+        if not keyd:
+            raise RuntimeError('Cannot reload keyd: executable not found.')
+        subprocess.run([keyd, 'reload'], check=True)
 except Exception:
     if old_profile is None:
         profile.unlink(missing_ok=True)
@@ -84,13 +91,21 @@ except Exception:
         profile.write_text(old_profile)
     if old_keyboard is not None:
         keyboard.write_text(old_keyboard)
-    subprocess.run(['keyd', 'reload'], check=False)
+    if keyd:
+        try:
+            subprocess.run([keyd, 'reload'], check=False)
+        except OSError:
+            pass
     raise
 '''
 
 
 def run(args, **kwargs):
     return subprocess.run(args, check=True, **kwargs)
+
+
+def keyd_command():
+    return shutil.which('keyd') or shutil.which('keyd.rvaiya')
 
 
 def devices():
@@ -103,14 +118,14 @@ def devices():
     return sorted(set(found))
 
 
-def config(ids, cmd_key):
+def config(ids, cmd_key, deepin=False):
     if cmd_key == 'alt':
         main = ('leftalt = layer(mac_command)\nrightalt = layer(mac_command)\n'
                 'leftmeta = layer(mac_option)\nrightcontrol = layer(mac_option)')
     else:
         main = ('leftmeta = layer(mac_command)\nrightmeta = layer(mac_command)\n'
                 'leftalt = layer(mac_option)\nrightalt = layer(mac_option)')
-    return f'''{MARKER}
+    profile = f'''{MARKER}
 # Command input mode: {cmd_key}. Only the listed MX Keys Mini is remapped.
 [ids]
 {chr(10).join(ids)}
@@ -160,6 +175,14 @@ down = S-C-end
 [mac_option+shift]
 c = G-S-comma
 '''
+    if deepin:
+        profile = profile.replace('space = f13', 'space = C-M-space').replace('q = f14', 'q = A-f4')
+        profile = profile.replace('tab = A-f6', 'tab = swapm(mac_group_switch, A-grave)')
+        profile += '''\n[mac_group_switch:A]\ntab = A-grave\n\n[mac_group_switch+shift]\ntab = S-A-grave\n\n[mac_app_switch+shift]\ntab = S-A-tab\n'''
+        profile = profile.replace('[mac_command+shift]\n', '[mac_command+shift]\nspace = C-S-space\ntab = swapm(mac_app_switch, S-A-tab)\n')
+        profile = profile.replace('[mac_option+shift]\n', '[mac_option+shift]\ntab = swapm(mac_group_switch, S-A-grave)\n')
+        profile = profile.replace('3 = S-print', '3 = print').replace('4 = macro(print 250ms s)', '4 = C-A-a').replace('5 = print', '5 = C-A-a')
+    return profile
 
 
 def desktop():
@@ -296,7 +319,7 @@ def apply_desktop(Gio, GLib, state):
 def already_configured(Gio, expected_profile):
     if not PROFILE.is_file() or PROFILE.read_text() != expected_profile:
         return False
-    if not shutil.which('keyd') or subprocess.run(
+    if not keyd_command() or subprocess.run(
             ['systemctl', 'is-active', '--quiet', 'keyd']).returncode != 0:
         return False
 
@@ -322,22 +345,115 @@ def already_configured(Gio, expected_profile):
     return True
 
 
+GHOSTTY_BEGIN = '# BEGIN dev-setup keyboard selection'
+GHOSTTY_END = '# END dev-setup keyboard selection'
+
+
+def ghostty_selection(apply):
+    root = Path(os.environ.get('XDG_CONFIG_HOME', str(Path.home() / '.config'))) / 'ghostty'
+    candidates = [root / 'config.ghostty', root / 'config']
+    path = next((p for p in candidates if p.exists()), root / 'config')
+    if not apply and not path.exists():
+        return
+    original = path.read_text() if path.exists() else ''
+    pattern = re.compile(r'(?m)^' + re.escape(GHOSTTY_BEGIN) + r'\n.*?^' + re.escape(GHOSTTY_END) + r'\n?', re.S)
+    cleaned = pattern.sub('', original)
+    block = GHOSTTY_BEGIN + '\n' + ''.join(
+        'keybind = ' + key + '=unbind\n' for key in (
+            'shift+left', 'shift+right', 'shift+up', 'shift+down',
+            'shift+home', 'shift+end', 'ctrl+shift+left', 'ctrl+shift+right',
+            'ctrl+shift+up', 'ctrl+shift+down', 'ctrl+shift+home',
+            'ctrl+shift+end', 'ctrl+shift+space')) + GHOSTTY_END + '\n'
+    updated = cleaned + ('\n' if cleaned and not cleaned.endswith('\n') else '') + block if apply else cleaned
+    if updated != original:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(updated)
+
+
+ACUTE_BEGIN = '# Managed by dev-setup keyboard acute key'
+ACUTE_STATE = STATE.parent / 'acute-x11.json'
+ACUTE_DESKTOP = Path(os.environ.get('XDG_CONFIG_HOME', str(Path.home() / '.config'))) / 'autostart/dev-setup-keyboard-acute.desktop'
+ACUTE_SCRIPT = STATE.parent / 'keyboard-acute-x11.sh'
+
+
+def remove_legacy_acute():
+    # Restore only our previous F24 assignment, and do not overwrite later edits.
+    if ACUTE_STATE.exists():
+        if not os.environ.get('DISPLAY') or not shutil.which('xmodmap'):
+            sys.exit('Run from the X11 desktop with xmodmap to restore the old acute-key mapping.')
+        current = run(['xmodmap', '-pke'], capture_output=True, text=True).stdout
+        line = next((line for line in current.splitlines() if re.match(r'^keycode\s+202\s*=', line)), '')
+        if 'acute' in line:
+            run(['xmodmap', '-e', json.loads(ACUTE_STATE.read_text())['previous']])
+        ACUTE_STATE.unlink()
+    if ACUTE_DESKTOP.exists() and ACUTE_DESKTOP.read_text().startswith(ACUTE_BEGIN):
+        ACUTE_DESKTOP.unlink()
+    if ACUTE_SCRIPT.exists() and 'keycode 202 = acute acute acute' in ACUTE_SCRIPT.read_text():
+        ACUTE_SCRIPT.unlink()
+
+
+DEEPIN_STATE = STATE.parent / 'deepin-search.json'
+DEEPIN_SEARCH = 'com.deepin.dde.keybinding.system'
+SEARCH_SHORTCUT = '<Control><Super>space'
+
+
+def deepin_search_matches():
+    try:
+        from gi.repository import Gio
+        values = Gio.Settings.new(DEEPIN_SEARCH).get_strv('global-search')
+    except (ImportError, ValueError):
+        return False
+    return (DEEPIN_STATE.exists() and SEARCH_SHORTCUT in values and
+            not any(value.lower() == '<shift>space' for value in values))
+
+
+def deepin_search(apply):
+    try:
+        from gi.repository import Gio, GLib
+    except ImportError:
+        sys.exit('Install python3-gi to configure Deepin shortcuts.')
+    settings = Gio.Settings.new(DEEPIN_SEARCH)
+    if apply:
+        if not DEEPIN_STATE.exists():
+            value = settings.get_user_value('global-search')
+            DEEPIN_STATE.parent.mkdir(parents=True, exist_ok=True)
+            DEEPIN_STATE.write_text(json.dumps({'value': value.unpack() if value is not None else None}))
+        values = [value for value in settings.get_strv('global-search')
+                  if value.lower() != '<shift>space']
+        if SEARCH_SHORTCUT not in values:
+            values.append(SEARCH_SHORTCUT)
+        if not settings.set_strv('global-search', values):
+            raise RuntimeError('Unable to update the Deepin search shortcut.')
+    elif DEEPIN_STATE.exists():
+        saved = json.loads(DEEPIN_STATE.read_text())['value']
+        if saved is None:
+            settings.reset('global-search')
+        elif not settings.set_strv('global-search', saved):
+            raise RuntimeError('Unable to restore the Deepin search shortcut.')
+        DEEPIN_STATE.unlink()
+    Gio.Settings.sync()
+
+
 def main():
     parser = argparse.ArgumentParser(prog='configure_keyboard.sh', description='Mac-style MX Keys Mini shortcuts through keyd on Ubuntu/GNOME.')
+    parser.add_argument('action', nargs='?', choices=['revert'], help='restore the previous keyboard configuration')
     group = parser.add_mutually_exclusive_group()
     group.add_argument('--reset', '-r', action='store_true', help='remove this keyd profile and restore desktop shortcuts')
     group.add_argument('--status', action='store_true', help='show configuration and service state without changing anything')
     group.add_argument('--check', action='store_true', help='check whether the profile and GNOME shortcuts already match')
     group.add_argument('--diagnose', action='store_true', help='show raw modifier events for 30 seconds (sudo required)')
     group.add_argument('--print-config', action='store_true', help='print the proposed keyd profile without applying it')
-    parser.add_argument('--cmd-key', choices=['alt', 'meta'], default='alt',
-                        help='raw key sent by physical Command; alt for the current PC mode, meta for Mac mode')
+    parser.add_argument('--cmd-key', choices=['alt', 'meta'], default=None,
+                        help='raw key sent by physical Command: meta in Mac mode (Deepin default), alt in PC mode')
     args = parser.parse_args()
+    args.reset = args.reset or args.action == 'revert'
+    deepin = 'DDE' in os.environ.get('XDG_CURRENT_DESKTOP', '').upper() or 'deepin' in os.environ.get('XDG_CURRENT_DESKTOP', '').lower()
+    args.cmd_key = args.cmd_key or ('meta' if deepin else 'alt')
     ids = devices()
     if args.print_config:
         if not ids:
             sys.exit('Connect the MX Keys Mini first.')
-        print(config(ids, args.cmd_key), end='')
+        print(config(ids, args.cmd_key, deepin), end='')
         return
     if args.status:
         print('Connected MX Keys Mini IDs:', ', '.join(ids) or 'none')
@@ -345,6 +461,9 @@ def main():
         if PROFILE.exists():
             print(PROFILE.read_text())
         subprocess.run(['systemctl', 'is-active', 'keyd'], check=False)
+        if deepin:
+            print('Desktop: Deepin (DDE)')
+            return
         Gio, _ = desktop()
         print('GNOME XKB options:', Gio.Settings.new('org.gnome.desktop.input-sources').get_strv('xkb-options'))
         print('System keyboard defaults:\n' + Path('/etc/default/keyboard').read_text())
@@ -354,8 +473,16 @@ def main():
         if not ids:
             print('MX Keys Mini not detected.')
             return 1
+        if deepin:
+            if (PROFILE.is_file() and PROFILE.read_text() == config(ids, args.cmd_key, True)
+                    and keyd_command() and deepin_search_matches() and not ACUTE_STATE.exists()
+                    and subprocess.run(['systemctl', 'is-active', '--quiet', 'keyd']).returncode == 0):
+                print('MX Keys Mini profile is already configured.')
+                return 0
+            print('MX Keys Mini profile needs configuration.')
+            return 1
         Gio, _ = desktop()
-        if already_configured(Gio, config(ids, args.cmd_key)):
+        if already_configured(Gio, config(ids, args.cmd_key, deepin)):
             print('MX Keys Mini profile is already configured.')
             return 0
         print('MX Keys Mini profile needs configuration.')
@@ -363,23 +490,51 @@ def main():
     if args.diagnose:
         print('Press ONLY left Command, right Command, Option, and Ctrl; note the MX Keys Mini event names.', flush=True)
         print('The monitor exits after 30 seconds. No log file is saved.', flush=True)
-        result = subprocess.run(['sudo', 'timeout', '30', 'keyd', 'monitor'])
+        keyd = keyd_command()
+        if not keyd:
+            sys.exit('Install keyd before running diagnostics: sudo apt-get install keyd')
+        result = subprocess.run(['sudo', 'timeout', '30', keyd, 'monitor'])
         if result.returncode not in (0, 124, 130):
             sys.exit(result.returncode)
         return
     if os.geteuid() == 0:
         sys.exit('Run as your desktop user: bash configure_keyboard.sh (it requests sudo when needed).')
+    if deepin:
+        if not args.reset and not ids:
+            sys.exit('Connect the MX Keys Mini first so its device ID can be detected.')
+        if not args.reset and not keyd_command():
+            run(['sudo', '-v'])
+            run(['sudo', 'apt-get', 'install', '-y', 'keyd'])
+        profile = config(ids, args.cmd_key, True)
+        started = int(time.time())
+        run(['sudo', '/usr/bin/python3', '-c', ROOT_HELPER,
+             'deepin-reset' if args.reset else 'deepin-apply', '' if args.reset else profile])
+        recent = subprocess.run(['journalctl', '-u', 'keyd', '--since', '@' + str(started),
+                                 '--no-pager', '-o', 'cat'], capture_output=True, text=True)
+        if recent.returncode == 0 and re.search(r'(?im)^.*(?:error:|failed to parse|invalid config)', recent.stdout):
+            sys.exit('Keyd reported an error; run bash configure_keyboard.sh --status to inspect its log.\n' + recent.stdout)
+        remove_legacy_acute()
+        deepin_search(not args.reset)
+        ghostty_selection(not args.reset)
+        print('Removed the MX Keys Mini profile.' if args.reset else
+              'Installed the Deepin MX Keys Mini profile for ' + ', '.join(ids) + '.')
+        if not args.reset:
+            print('Command acts as Ctrl; Command+Shift+arrows selects text. Command+Space searches, Command+Q closes the window.')
+            print('Herdr: Command+Shift+Space enters output selection; then Space, arrows and Enter.')
+            print('Reload Ghostty configuration or open a new window to apply selection bindings.')
+            print('Undo: bash configure_keyboard.sh revert')
+        return
     Gio, GLib = desktop()
     if not args.reset and not ids:
         sys.exit('Connect the MX Keys Mini first so its device ID can be detected.')
     state = json.loads(STATE.read_text()) if STATE.exists() else None
-    profile = config(ids, args.cmd_key)
-    if already_configured(Gio, profile):
+    profile = config(ids, args.cmd_key, deepin)
+    if not args.reset and already_configured(Gio, profile):
         print('MX Keys Mini profile and GNOME shortcuts are already configured; nothing to change.')
         return
     # Authentication happens before any changes to the desktop or system files.
     run(['sudo', '-v'])
-    if not args.reset and not shutil.which('keyd'):
+    if not args.reset and not keyd_command():
         run(['sudo', 'apt-get', 'install', '-y', 'keyd'])
     if args.reset:
         run(['sudo', '/usr/bin/python3', '-c', ROOT_HELPER, 'reset', ''])
@@ -422,6 +577,8 @@ def main():
 
 try:
     sys.exit(main() or 0)
-except (subprocess.CalledProcessError, OSError, ValueError) as error:
+except subprocess.CalledProcessError as error:
+    sys.exit(f'Command failed with exit status {error.returncode}: {error.cmd[0]}')
+except (OSError, ValueError) as error:
     sys.exit(str(error))
 PY
