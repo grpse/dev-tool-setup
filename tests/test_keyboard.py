@@ -33,6 +33,13 @@ class KeyboardTests(unittest.TestCase):
         self.assertIn('tab = swapm(mac_group_switch, S-A-grave)', profile)
         self.assertIn('space = C-S-space', profile)
 
+    def test_connected_keyboard_command_and_option_mapping(self):
+        profile = self.module['config'](['046d:b369'], 'alt', True)
+        self.assertIn('leftalt = layer(mac_command)', profile)
+        self.assertIn('leftmeta = layer(mac_option)', profile)
+        self.assertIn('tab = swapm(mac_app_switch, A-tab)', profile)
+        self.assertIn('tab = swapm(mac_group_switch, A-grave)', profile)
+
     def test_mac_mode_and_gnome_profile(self):
         profile = self.module['config'](['046d:b369'], 'meta')
         self.assertIn('leftmeta = layer(mac_command)', profile)
@@ -55,6 +62,20 @@ class KeyboardTests(unittest.TestCase):
             self.assertFalse(state.exists())
             self.assertFalse(desktop.exists())
             self.assertFalse(script.exists())
+
+    def test_kwin_application_switcher_restores_previous_setting(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            config, state = root / 'kwinrc', root / 'state.json'
+            original = '[Other]\nValue=keep\n\n[TabBox]\nApplicationsMode=0\nLayoutName=keep\n'
+            config.write_text(original)
+            with patch.dict(self.module, KWIN_CONFIG=config, KWIN_STATE=state, run=lambda *args, **kwargs: None):
+                self.module['kwin_switcher'](True)
+                self.module['kwin_switcher'](True)
+                self.assertIn('ApplicationsMode=1\n', config.read_text())
+                self.module['kwin_switcher'](False)
+                self.assertEqual(original, config.read_text())
+                self.assertFalse(state.exists())
 
     def test_ghostty_selection_is_idempotent_and_reversible(self):
         with tempfile.TemporaryDirectory() as temp, patch.dict(os.environ, XDG_CONFIG_HOME=temp):

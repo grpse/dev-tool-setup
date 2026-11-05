@@ -434,6 +434,41 @@ def deepin_search(apply):
     Gio.Settings.sync()
 
 
+KWIN_CONFIG = Path(os.environ.get('XDG_CONFIG_HOME', str(Path.home() / '.config'))) / 'kwinrc'
+KWIN_STATE = STATE.parent / 'deepin-kwin-switcher.json'
+
+
+def kwin_switcher(apply):
+    if not apply and not KWIN_STATE.exists():
+        return
+    content = KWIN_CONFIG.read_text() if KWIN_CONFIG.exists() else ''
+    group = re.search(r'(?m)^\[TabBox\]\s*\n(?:(?!\[).*(?:\n|$))*', content)
+    section = group.group() if group else ''
+    entry = re.search(r'(?m)^ApplicationsMode\s*=.*(?:\n|$)', section)
+    if apply:
+        if not KWIN_STATE.exists():
+            KWIN_STATE.parent.mkdir(parents=True, exist_ok=True)
+            KWIN_STATE.write_text(json.dumps({'previous': entry.group().rstrip('\n') if entry else None}))
+        replacement = 'ApplicationsMode=1\n'
+    else:
+        previous = json.loads(KWIN_STATE.read_text())['previous']
+        replacement = previous + '\n' if previous is not None else ''
+    if entry:
+        section = section[:entry.start()] + replacement + section[entry.end():]
+    elif apply:
+        section = section + replacement if group else '[TabBox]\n' + replacement
+    if group:
+        content = content[:group.start()] + section + content[group.end():]
+    elif apply:
+        content += ('' if not content or content.endswith('\n') else '\n') + '\n' + section
+    KWIN_CONFIG.parent.mkdir(parents=True, exist_ok=True)
+    KWIN_CONFIG.write_text(content)
+    run(['gdbus', 'call', '--session', '--dest', 'org.kde.KWin', '--object-path', '/KWin',
+         '--method', 'org.kde.KWin.reconfigure'], stdout=subprocess.DEVNULL)
+    if not apply:
+        KWIN_STATE.unlink()
+
+
 def main():
     parser = argparse.ArgumentParser(prog='configure_keyboard.sh', description='Mac-style MX Keys Mini shortcuts through keyd on Ubuntu/GNOME.')
     parser.add_argument('action', nargs='?', choices=['revert'], help='restore the previous keyboard configuration')
@@ -444,11 +479,11 @@ def main():
     group.add_argument('--diagnose', action='store_true', help='show raw modifier events for 30 seconds (sudo required)')
     group.add_argument('--print-config', action='store_true', help='print the proposed keyd profile without applying it')
     parser.add_argument('--cmd-key', choices=['alt', 'meta'], default=None,
-                        help='raw key sent by physical Command: meta in Mac mode (Deepin default), alt in PC mode')
+                        help='raw key sent by physical Command: alt (default for this keyboard connection) or meta')
     args = parser.parse_args()
     args.reset = args.reset or args.action == 'revert'
     deepin = 'DDE' in os.environ.get('XDG_CURRENT_DESKTOP', '').upper() or 'deepin' in os.environ.get('XDG_CURRENT_DESKTOP', '').lower()
-    args.cmd_key = args.cmd_key or ('meta' if deepin else 'alt')
+    args.cmd_key = args.cmd_key or 'alt'
     ids = devices()
     if args.print_config:
         if not ids:
@@ -475,7 +510,8 @@ def main():
             return 1
         if deepin:
             if (PROFILE.is_file() and PROFILE.read_text() == config(ids, args.cmd_key, True)
-                    and keyd_command() and deepin_search_matches() and not ACUTE_STATE.exists()
+                    and keyd_command() and deepin_search_matches() and KWIN_STATE.exists()
+                    and 'ApplicationsMode=1' in KWIN_CONFIG.read_text() and not ACUTE_STATE.exists()
                     and subprocess.run(['systemctl', 'is-active', '--quiet', 'keyd']).returncode == 0):
                 print('MX Keys Mini profile is already configured.')
                 return 0
@@ -515,6 +551,7 @@ def main():
             sys.exit('Keyd reported an error; run bash configure_keyboard.sh --status to inspect its log.\n' + recent.stdout)
         remove_legacy_acute()
         deepin_search(not args.reset)
+        kwin_switcher(not args.reset)
         ghostty_selection(not args.reset)
         print('Removed the MX Keys Mini profile.' if args.reset else
               'Installed the Deepin MX Keys Mini profile for ' + ', '.join(ids) + '.')

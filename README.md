@@ -74,8 +74,8 @@ and creates a profile for the connected MX Keys Mini. Run
 `bash configure_keyboard.sh revert` to remove that profile; existing Deepin
 shortcuts are restored and other keyd profiles are left alone. The pictured MX
 Keys Mini for Mac has Control, Option, Command, Space, Command, Option along
-its bottom row. The profile defaults to Mac mode, where Command sends Meta;
-use `--cmd-key alt` if the keyboard is in PC mode. Use `--diagnose` to check
+its bottom row. The profile defaults to the observed connection mode, where the physical
+Command key sends Alt. Use `--cmd-key meta` if Command instead sends Meta. Use `--diagnose` to check
 raw keys and `--print-config` to preview the profile.
 
 With the US English layout, the key left of 1 types backtick (`) and Shift+key
