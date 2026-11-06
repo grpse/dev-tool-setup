@@ -451,6 +451,16 @@ if declare -F bleopt >/dev/null; then
   bleopt complete_auto_complete= highlight_syntax= highlight_filename= highlight_variable=
   bleopt exec_elapsed_enabled=0
   bleopt exec_errexit_mark= exec_exit_mark=
+  # Ghostty translates macOS Cmd+Shift+arrows to these standard keys.
+  # Bind both maps so extending or reversing an existing selection works too.
+  ble-bind -m emacs -f 'S-home' '@marked beginning-of-line'
+  ble-bind -m emacs -f 'S-end' '@marked end-of-line'
+  ble-bind -m emacs -f 'C-S-home' '@marked beginning-of-text'
+  ble-bind -m emacs -f 'C-S-end' '@marked end-of-text'
+  ble-bind -m selection -f 'S-home' beginning-of-line
+  ble-bind -m selection -f 'S-end' end-of-line
+  ble-bind -m selection -f 'C-S-home' beginning-of-text
+  ble-bind -m selection -f 'C-S-end' end-of-text
   ble-bind -m emacs -f 'C-S-up' '@marked backward-line'
   ble-bind -m emacs -f 'C-S-down' '@marked forward-line'
   ble-bind -m emacs -f 'C-S-left' '@marked backward-cword'

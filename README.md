@@ -36,7 +36,10 @@ and managed Bash startup entries are backed up under
 
 Bash uses ble.sh for interactive command-line selection, including Shift+Arrow
 and the configured Command/Option selection shortcuts. Open a new shell after
-installing. Herdr output selection is separate from editing the current command.
+installing. On macOS, Cmd+Shift+Left/Right selects from the cursor to the
+beginning/end of the current line, and Cmd+Shift+Up/Down selects to the
+beginning/end of the command text. Herdr output selection is separate from
+editing the current command.
 
 In output selection mode, press Space to start selection, use arrows to extend
 it, and Enter to copy; Esc exits. macOS keeps Ghostty's native Cmd+C/Cmd+V

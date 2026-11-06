@@ -173,7 +173,16 @@ go version
         self.assertIn("install bash\n", calls)
         self.assertNotIn("install --cask font", calls)
         ghostty = self.home / "Library/Application Support/com.mitchellh.ghostty/config.ghostty"
-        self.assertIn("cmd+shift+left=csi:1;2H", ghostty.read_text())
+        for binding in ("cmd+shift+left=csi:1;2H", "cmd+shift+right=csi:1;2F",
+                        "cmd+shift+up=csi:1;6H", "cmd+shift+down=csi:1;6F"):
+            self.assertIn(binding, ghostty.read_text())
+        selection = (self.home / ".config/herdr/selection.bash").read_text()
+        for key, widget in (("S-home", "beginning-of-line"),
+                            ("S-end", "end-of-line"),
+                            ("C-S-home", "beginning-of-text"),
+                            ("C-S-end", "end-of-text")):
+            self.assertIn(f"ble-bind -m emacs -f '{key}' '@marked {widget}'", selection)
+            self.assertIn(f"ble-bind -m selection -f '{key}' {widget}", selection)
         self.verify_startup(login=True)
         self.verify_rerun()
 
