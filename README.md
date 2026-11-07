@@ -100,7 +100,9 @@ with the arrows, and press Enter to copy. The keyboard script configures Ghostty
 to pass selection keys through; reload Ghostty or open a new window afterward. Command+C still sends Ctrl+C in terminals,
 which interrupts the foreground process; use the terminal's Ctrl+Shift+C/V
 for clipboard operations. Keyd cannot distinguish a terminal from other apps.
-The profile does not change the keyboard layout or media keys.
+The Deepin setup also installs the XKB layout **MX Keys Mini For Mac - en-us** and adds it to the current Fcitx 5 input-method group alongside existing layouts. To install only the layout, run `bash configure_keyboard.sh --install-layout`. It preserves the existing default and selected input method; select the new layout from the input-method switcher. The US ANSI legends use the normal US characters, with AltGr+comma / AltGr+Shift+comma providing ç / Ç for the Option+C shortcut. The layout is registered in the user’s XKB configuration, so it works on Deepin systems with a read-only `/usr`. On X11, Fcitx uses the system’s `us(altgr-intl)` variant to apply the same printed US keys and cedilla shortcut; its other AltGr characters follow that variant. Fcitx may restart once to discover the new layout. `revert` removes the shortcut profile but leaves the installed layout available.
+
+This profile does not change media keys.
 
 ### Mac-style MX Keys Mini on Ubuntu/GNOME
 

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Run as your desktop user. sudo is used only for the keyd/system files.
 set -euo pipefail
+export DEV_SETUP_KEYBOARD_SETUP_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 exec /usr/bin/python3 - "$@" <<'PY'
 import argparse
 import json
@@ -363,9 +364,12 @@ def ghostty_selection(apply):
     block = GHOSTTY_BEGIN + '\n' + ''.join(
         'keybind = ' + key + '=unbind\n' for key in (
             'shift+left', 'shift+right', 'shift+up', 'shift+down',
-            'shift+home', 'shift+end', 'ctrl+shift+left', 'ctrl+shift+right',
+            'ctrl+shift+left', 'ctrl+shift+right',
             'ctrl+shift+up', 'ctrl+shift+down', 'ctrl+shift+home',
-            'ctrl+shift+end', 'ctrl+shift+space')) + GHOSTTY_END + '\n'
+            'ctrl+shift+end', 'ctrl+shift+space')) + (
+        'keybind = shift+home=csi:1;2H\n'
+        'keybind = shift+end=csi:1;2F\n'
+    ) + GHOSTTY_END + '\n'
     updated = cleaned + ('\n' if cleaned and not cleaned.endswith('\n') else '') + block if apply else cleaned
     if updated != original:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -541,6 +545,7 @@ def main():
     group.add_argument('--check', action='store_true', help='check whether the profile and GNOME shortcuts already match')
     group.add_argument('--diagnose', action='store_true', help='show raw modifier events for 30 seconds (sudo required)')
     group.add_argument('--print-config', action='store_true', help='print the proposed keyd profile without applying it')
+    group.add_argument('--install-layout', action='store_true', help='install the MX Keys Mini US layout and add it to Fcitx on Deepin')
     parser.add_argument('--cmd-key', choices=['alt', 'meta'], default=None,
                         help='raw key sent by physical Command: alt (default for this keyboard connection) or meta')
     args = parser.parse_args()
@@ -548,6 +553,12 @@ def main():
     deepin = 'DDE' in os.environ.get('XDG_CURRENT_DESKTOP', '').upper() or 'deepin' in os.environ.get('XDG_CURRENT_DESKTOP', '').lower()
     args.cmd_key = args.cmd_key or 'alt'
     ids = devices()
+    layout_installer = Path(os.environ['DEV_SETUP_KEYBOARD_SETUP_DIR']) / 'keyboard/install_mxmini_layout.py'
+    if args.install_layout:
+        if not deepin:
+            sys.exit('The layout installer currently supports Deepin with Fcitx 5.')
+        run(['/usr/bin/python3', str(layout_installer)])
+        return
     if args.print_config:
         if not ids:
             sys.exit('Connect the MX Keys Mini first.')
@@ -573,6 +584,7 @@ def main():
             return 1
         if deepin:
             if (PROFILE.is_file() and PROFILE.read_text() == config(ids, args.cmd_key, True)
+                    and subprocess.run(['/usr/bin/python3', str(layout_installer), '--check'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0
                     and keyd_command() and deepin_search_matches() and deepin_live_search_matches() and KWIN_STATE.exists()
                     and 'ApplicationsMode=1' in KWIN_CONFIG.read_text() and not ACUTE_STATE.exists()
                     and subprocess.run(['systemctl', 'is-active', '--quiet', 'keyd']).returncode == 0):
@@ -612,6 +624,8 @@ def main():
                                  '--no-pager', '-o', 'cat'], capture_output=True, text=True)
         if recent.returncode == 0 and re.search(r'(?im)^.*(?:error:|failed to parse|invalid config)', recent.stdout):
             sys.exit('Keyd reported an error; run bash configure_keyboard.sh --status to inspect its log.\n' + recent.stdout)
+        if not args.reset:
+            run(['/usr/bin/python3', str(layout_installer)])
         remove_legacy_acute()
         deepin_search(not args.reset)
         deepin_live_search(not args.reset)

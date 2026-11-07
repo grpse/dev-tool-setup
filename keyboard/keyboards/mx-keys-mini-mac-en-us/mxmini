@@ -1,0 +1,10 @@
+// MX Keys Mini For Mac - en-us
+// The ANSI legends match US English. AltGr+comma supports the existing
+// Option+C shortcut for ç / Ç without introducing dead keys.
+default partial alphanumeric_keys modifier_keys
+xkb_symbols "basic" {
+    include "us(basic)"
+    name[Group1] = "MX Keys Mini For Mac - en-us";
+    key <AB08> { type[Group1] = "FOUR_LEVEL", [ comma, less, ccedilla, Ccedilla ] };
+    include "level3(ralt_switch)"
+};

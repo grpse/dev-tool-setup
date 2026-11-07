@@ -235,8 +235,8 @@ keybind = shift+left=unbind
 keybind = shift+right=unbind
 keybind = shift+up=unbind
 keybind = shift+down=unbind
-keybind = shift+home=unbind
-keybind = shift+end=unbind
+keybind = shift+home=csi:1;2H
+keybind = shift+end=csi:1;2F
 keybind = ctrl+shift+home=unbind
 keybind = ctrl+shift+end=unbind
 keybind = ctrl+shift+left=unbind
