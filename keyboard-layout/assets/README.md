@@ -8,7 +8,7 @@ Extracted from `../reference.webp` at its original 2443 × 1374 resolution.
 - `chassis.png`: continuous source chassis with transparent holes for the individual keys.
 - `manifest.json`: source coordinates, dimensions, labels, and icon paths. Coordinates are relative to the keyboard origin at source pixel (542, 390).
 
-The page composites the surface, legend, and icon layers individually. Key dimensions are trimmed to the detected socket bounds, preserving the source gaps without crop padding. Source imagery limits sharpness when zoomed beyond its original resolution.
+These extracted surfaces and legends are retained as reference materials. The React app renders keycaps and characters with HTML/CSS and embeds only the icons, logo, and reference image. Key dimensions are trimmed to the detected socket bounds, preserving the source gaps without crop padding. Source imagery limits sharpness when zoomed beyond its original resolution.
 
 Regenerate from the repository root using Python 3 and ffmpeg:
 
@@ -16,4 +16,4 @@ Regenerate from the repository root using Python 3 and ffmpeg:
 python3 keyboard-layout/tools/extract-assets.py
 ```
 
-The extraction script reads `tools/layout-template.html` and writes `index.html` and these PNG assets. Change the template when changing the layout's markup.
+The extraction script reads `tools/layout-template.html` and writes `tools/extracted-layout.html` and these PNG assets. Change the template when changing the layout's markup.

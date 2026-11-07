@@ -133,7 +133,7 @@ def extract(m):
  manifest.append(dict(id=name,x=x,y=y,width=w,height=h,icon=icon,label=label))
  return f'<div class="key {classes} source-key" style="--x:{x};--y:{y};--w:{w};--h:{h}"><img class="key-surface" src="assets/keys/{name}.png" alt=""><img class="key-legend" src="assets/legends/{name}.png" alt="{label}">{icon_html}</div>'
 html=pattern.sub(extract,html)
-(ROOT/'index.html').write_text(html)
+(ROOT/'tools/extracted-layout.html').write_text(html)
 png(ROOT/'assets/chassis.png',FRAME_W,FRAME_H,frame)
 (ROOT/'assets/manifest.json').write_text(json.dumps(manifest,indent=2,ensure_ascii=False)+'\n')
 print(f'Extracted {len(manifest)} key silhouettes and legends; {sum(bool(k["icon"]) for k in manifest)} separate icons.')
