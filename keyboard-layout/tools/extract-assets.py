@@ -11,6 +11,23 @@ def png(path,w,h,data):
  def chunk(t,b):return struct.pack('>I',len(b))+t+b+struct.pack('>I',zlib.crc32(t+b)&0xffffffff)
  scan=b''.join(b'\0'+bytes(data[y*w*4:(y+1)*w*4]) for y in range(h))
  path.write_bytes(b'\x89PNG\r\n\x1a\n'+chunk(b'IHDR',struct.pack('>IIBBBBB',w,h,8,6,0,0,0))+chunk(b'IDAT',zlib.compress(scan,9))+chunk(b'IEND',b''))
+# Extract the actual wordmark, with the rail color removed from its alpha.
+logo_points=[]
+for ly in range(395,432):
+ for lx in range(1190,1260):
+  p=(ly*W+lx)*4
+  if min(raw[p:p+3])>135:logo_points.append((lx,ly))
+logo_x=min(p[0] for p in logo_points)-1;logo_y=min(p[1] for p in logo_points)-1
+logo_w=max(p[0] for p in logo_points)-logo_x+2;logo_h=max(p[1] for p in logo_points)-logo_y+2
+logo=bytearray()
+for ly in range(logo_y,logo_y+logo_h):
+ # Sample unprinted metal on either side of the wordmark.
+ background=sum(raw[(ly*W+lx)*4] for lx in (1185,1186,1263,1264))/4
+ for lx in range(logo_x,logo_x+logo_w):
+  p=(ly*W+lx)*4
+  alpha=max(0,min(255,round((sum(raw[p:p+3])/3-background)/(220-background)*255)))
+  logo.extend((220,220,220,alpha))
+png(ROOT/'assets/icons/logi.png',logo_w,logo_h,logo)
 def luma(p):return (p[0]*3+p[1]*6+p[2])/10
 html=(ROOT/'tools/layout-template.html').read_text()
 pattern=re.compile(r'<div class="key ([^"]*)" style="([^"]*)">(.*?)</div>',re.S)
