@@ -1,0 +1,19 @@
+{
+  "reference": "reference.webp",
+  "sourceDimensions": [
+    2443,
+    1374
+  ],
+  "browserViewport": [
+    1297,
+    1255
+  ],
+  "measuredLabels": 174,
+  "unreadyLabels": 0,
+  "maxSourcePixelPositionError": 0.004727229231377805,
+  "method": "Source ink bounds compared with browser canvas glyph metrics and DOM baseline probes; checked in overlay and Difference views.",
+  "scope": "Positioning only. Does not claim pixel-identical glyph outlines, antialiasing, or key shading.",
+  "maxShiftCharacterPositionError": 0.0005957398308282791,
+  "registration": "Individual character ink bounds for word labels, including both Shift keys.",
+  "arrowCorner": "Right-arrow bottom-right ellipse: 32 \u00d7 28 source pixels."
+}
