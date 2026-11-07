@@ -1,0 +1,713 @@
+[
+  {
+    "id": "00",
+    "x": 28,
+    "y": 75,
+    "width": 79,
+    "height": 60,
+    "icon": "assets/icons/escape.png",
+    "label": "esc  lock"
+  },
+  {
+    "id": "01",
+    "x": 116,
+    "y": 75,
+    "width": 78,
+    "height": 60,
+    "icon": "assets/icons/device-1.png",
+    "label": "1  F1"
+  },
+  {
+    "id": "02",
+    "x": 203,
+    "y": 75,
+    "width": 79,
+    "height": 60,
+    "icon": "assets/icons/device-2.png",
+    "label": "2  F2"
+  },
+  {
+    "id": "03",
+    "x": 291,
+    "y": 75,
+    "width": 78,
+    "height": 60,
+    "icon": "assets/icons/device-3.png",
+    "label": "3  F3"
+  },
+  {
+    "id": "04",
+    "x": 378,
+    "y": 75,
+    "width": 79,
+    "height": 60,
+    "icon": "assets/icons/backlight-down.png",
+    "label": "Backlight down  F4"
+  },
+  {
+    "id": "05",
+    "x": 466,
+    "y": 75,
+    "width": 78,
+    "height": 60,
+    "icon": "assets/icons/backlight-up.png",
+    "label": "Backlight up  F5"
+  },
+  {
+    "id": "06",
+    "x": 553,
+    "y": 75,
+    "width": 79,
+    "height": 60,
+    "icon": "assets/icons/dictation.png",
+    "label": "Dictation  F6"
+  },
+  {
+    "id": "07",
+    "x": 641,
+    "y": 75,
+    "width": 78,
+    "height": 60,
+    "icon": "assets/icons/emoji.png",
+    "label": "Emoji  F7"
+  },
+  {
+    "id": "08",
+    "x": 728,
+    "y": 75,
+    "width": 79,
+    "height": 60,
+    "icon": "assets/icons/screenshot.png",
+    "label": "Screenshot  F8"
+  },
+  {
+    "id": "09",
+    "x": 816,
+    "y": 75,
+    "width": 78,
+    "height": 60,
+    "icon": "assets/icons/microphone-mute.png",
+    "label": "Microphone mute  F9"
+  },
+  {
+    "id": "10",
+    "x": 903,
+    "y": 75,
+    "width": 79,
+    "height": 60,
+    "icon": "assets/icons/play-pause.png",
+    "label": "Play / pause  F10"
+  },
+  {
+    "id": "11",
+    "x": 991,
+    "y": 75,
+    "width": 78,
+    "height": 60,
+    "icon": "assets/icons/volume-mute.png",
+    "label": "Mute  F11"
+  },
+  {
+    "id": "12",
+    "x": 1078,
+    "y": 75,
+    "width": 79,
+    "height": 60,
+    "icon": "assets/icons/volume-down.png",
+    "label": "Volume down  F12"
+  },
+  {
+    "id": "13",
+    "x": 1166,
+    "y": 75,
+    "width": 78,
+    "height": 60,
+    "icon": "assets/icons/volume-up.png",
+    "label": "Volume up  ins"
+  },
+  {
+    "id": "14",
+    "x": 1253,
+    "y": 75,
+    "width": 79,
+    "height": 60,
+    "icon": "assets/icons/delete.png",
+    "label": "del  lock"
+  },
+  {
+    "id": "15",
+    "x": 28,
+    "y": 143,
+    "width": 79,
+    "height": 80,
+    "icon": null,
+    "label": "~  `"
+  },
+  {
+    "id": "16",
+    "x": 128,
+    "y": 151,
+    "width": 58,
+    "height": 62,
+    "icon": null,
+    "label": "!  1"
+  },
+  {
+    "id": "17",
+    "x": 203,
+    "y": 144,
+    "width": 79,
+    "height": 78,
+    "icon": null,
+    "label": "@  2"
+  },
+  {
+    "id": "18",
+    "x": 303,
+    "y": 151,
+    "width": 58,
+    "height": 58,
+    "icon": null,
+    "label": "#  3"
+  },
+  {
+    "id": "19",
+    "x": 378,
+    "y": 144,
+    "width": 79,
+    "height": 78,
+    "icon": null,
+    "label": "$  4"
+  },
+  {
+    "id": "20",
+    "x": 466,
+    "y": 144,
+    "width": 78,
+    "height": 78,
+    "icon": null,
+    "label": "%  5"
+  },
+  {
+    "id": "21",
+    "x": 553,
+    "y": 144,
+    "width": 79,
+    "height": 78,
+    "icon": null,
+    "label": "^  6"
+  },
+  {
+    "id": "22",
+    "x": 641,
+    "y": 144,
+    "width": 78,
+    "height": 78,
+    "icon": null,
+    "label": "&amp;  7"
+  },
+  {
+    "id": "23",
+    "x": 728,
+    "y": 144,
+    "width": 79,
+    "height": 78,
+    "icon": null,
+    "label": "*  8"
+  },
+  {
+    "id": "24",
+    "x": 823,
+    "y": 151,
+    "width": 62,
+    "height": 49,
+    "icon": null,
+    "label": "(  9"
+  },
+  {
+    "id": "25",
+    "x": 911,
+    "y": 151,
+    "width": 59,
+    "height": 53,
+    "icon": null,
+    "label": ")  0"
+  },
+  {
+    "id": "26",
+    "x": 999,
+    "y": 151,
+    "width": 58,
+    "height": 56,
+    "icon": null,
+    "label": "_  -"
+  },
+  {
+    "id": "27",
+    "x": 1087,
+    "y": 151,
+    "width": 58,
+    "height": 59,
+    "icon": null,
+    "label": "+  ="
+  },
+  {
+    "id": "28",
+    "x": 1166,
+    "y": 144,
+    "width": 166,
+    "height": 79,
+    "icon": null,
+    "label": "backspace"
+  },
+  {
+    "id": "29",
+    "x": 27,
+    "y": 232,
+    "width": 123,
+    "height": 79,
+    "icon": null,
+    "label": "tab"
+  },
+  {
+    "id": "30",
+    "x": 159,
+    "y": 232,
+    "width": 79,
+    "height": 78,
+    "icon": null,
+    "label": "Q"
+  },
+  {
+    "id": "31",
+    "x": 257,
+    "y": 238,
+    "width": 60,
+    "height": 59,
+    "icon": null,
+    "label": "W"
+  },
+  {
+    "id": "32",
+    "x": 343,
+    "y": 238,
+    "width": 62,
+    "height": 56,
+    "icon": null,
+    "label": "E"
+  },
+  {
+    "id": "33",
+    "x": 431,
+    "y": 238,
+    "width": 62,
+    "height": 53,
+    "icon": null,
+    "label": "R"
+  },
+  {
+    "id": "34",
+    "x": 517,
+    "y": 238,
+    "width": 64,
+    "height": 44,
+    "icon": null,
+    "label": "T"
+  },
+  {
+    "id": "35",
+    "x": 604,
+    "y": 238,
+    "width": 64,
+    "height": 44,
+    "icon": null,
+    "label": "Y"
+  },
+  {
+    "id": "36",
+    "x": 692,
+    "y": 238,
+    "width": 64,
+    "height": 41,
+    "icon": null,
+    "label": "U"
+  },
+  {
+    "id": "37",
+    "x": 779,
+    "y": 238,
+    "width": 65,
+    "height": 49,
+    "icon": null,
+    "label": "I"
+  },
+  {
+    "id": "38",
+    "x": 867,
+    "y": 238,
+    "width": 63,
+    "height": 51,
+    "icon": null,
+    "label": "O"
+  },
+  {
+    "id": "39",
+    "x": 955,
+    "y": 239,
+    "width": 61,
+    "height": 54,
+    "icon": null,
+    "label": "P"
+  },
+  {
+    "id": "40",
+    "x": 1043,
+    "y": 238,
+    "width": 61,
+    "height": 59,
+    "icon": null,
+    "label": "{  ["
+  },
+  {
+    "id": "41",
+    "x": 1130,
+    "y": 238,
+    "width": 61,
+    "height": 62,
+    "icon": null,
+    "label": "}  ]"
+  },
+  {
+    "id": "42",
+    "x": 1210,
+    "y": 232,
+    "width": 123,
+    "height": 78,
+    "icon": null,
+    "label": "|  \\"
+  },
+  {
+    "id": "43",
+    "x": 27,
+    "y": 319,
+    "width": 145,
+    "height": 80,
+    "icon": null,
+    "label": "caps lock"
+  },
+  {
+    "id": "44",
+    "x": 181,
+    "y": 319,
+    "width": 79,
+    "height": 79,
+    "icon": null,
+    "label": "A"
+  },
+  {
+    "id": "45",
+    "x": 276,
+    "y": 326,
+    "width": 63,
+    "height": 59,
+    "icon": null,
+    "label": "S"
+  },
+  {
+    "id": "46",
+    "x": 364,
+    "y": 326,
+    "width": 63,
+    "height": 56,
+    "icon": null,
+    "label": "D"
+  },
+  {
+    "id": "47",
+    "x": 451,
+    "y": 326,
+    "width": 64,
+    "height": 52,
+    "icon": null,
+    "label": "F"
+  },
+  {
+    "id": "48",
+    "x": 538,
+    "y": 326,
+    "width": 65,
+    "height": 48,
+    "icon": null,
+    "label": "G"
+  },
+  {
+    "id": "49",
+    "x": 626,
+    "y": 326,
+    "width": 64,
+    "height": 42,
+    "icon": null,
+    "label": "H"
+  },
+  {
+    "id": "50",
+    "x": 714,
+    "y": 326,
+    "width": 64,
+    "height": 46,
+    "icon": null,
+    "label": "J"
+  },
+  {
+    "id": "51",
+    "x": 801,
+    "y": 326,
+    "width": 65,
+    "height": 47,
+    "icon": null,
+    "label": "K"
+  },
+  {
+    "id": "52",
+    "x": 889,
+    "y": 326,
+    "width": 64,
+    "height": 53,
+    "icon": null,
+    "label": "L"
+  },
+  {
+    "id": "53",
+    "x": 977,
+    "y": 326,
+    "width": 63,
+    "height": 57,
+    "icon": null,
+    "label": ":  ;"
+  },
+  {
+    "id": "54",
+    "x": 1057,
+    "y": 319,
+    "width": 78,
+    "height": 79,
+    "icon": null,
+    "label": "&quot;  &#x27;"
+  },
+  {
+    "id": "55",
+    "x": 1144,
+    "y": 319,
+    "width": 189,
+    "height": 80,
+    "icon": null,
+    "label": "enter"
+  },
+  {
+    "id": "56",
+    "x": 27,
+    "y": 406,
+    "width": 189,
+    "height": 81,
+    "icon": null,
+    "label": "shift"
+  },
+  {
+    "id": "57",
+    "x": 225,
+    "y": 407,
+    "width": 78,
+    "height": 78,
+    "icon": null,
+    "label": "Z"
+  },
+  {
+    "id": "58",
+    "x": 313,
+    "y": 407,
+    "width": 78,
+    "height": 78,
+    "icon": null,
+    "label": "X"
+  },
+  {
+    "id": "59",
+    "x": 400,
+    "y": 407,
+    "width": 79,
+    "height": 78,
+    "icon": null,
+    "label": "C"
+  },
+  {
+    "id": "60",
+    "x": 488,
+    "y": 407,
+    "width": 78,
+    "height": 78,
+    "icon": null,
+    "label": "V"
+  },
+  {
+    "id": "61",
+    "x": 575,
+    "y": 407,
+    "width": 78,
+    "height": 78,
+    "icon": null,
+    "label": "B"
+  },
+  {
+    "id": "62",
+    "x": 669,
+    "y": 414,
+    "width": 65,
+    "height": 45,
+    "icon": null,
+    "label": "N"
+  },
+  {
+    "id": "63",
+    "x": 750,
+    "y": 407,
+    "width": 79,
+    "height": 78,
+    "icon": null,
+    "label": "M"
+  },
+  {
+    "id": "64",
+    "x": 838,
+    "y": 407,
+    "width": 78,
+    "height": 78,
+    "icon": null,
+    "label": "&lt;  ,"
+  },
+  {
+    "id": "65",
+    "x": 925,
+    "y": 407,
+    "width": 79,
+    "height": 78,
+    "icon": null,
+    "label": "&gt;  ."
+  },
+  {
+    "id": "66",
+    "x": 1013,
+    "y": 407,
+    "width": 78,
+    "height": 78,
+    "icon": null,
+    "label": "?  /"
+  },
+  {
+    "id": "67",
+    "x": 1100,
+    "y": 406,
+    "width": 234,
+    "height": 80,
+    "icon": null,
+    "label": "shift"
+  },
+  {
+    "id": "68",
+    "x": 27,
+    "y": 494,
+    "width": 91,
+    "height": 80,
+    "icon": null,
+    "label": "ctrl"
+  },
+  {
+    "id": "69",
+    "x": 126,
+    "y": 494,
+    "width": 79,
+    "height": 80,
+    "icon": null,
+    "label": "fn"
+  },
+  {
+    "id": "70",
+    "x": 214,
+    "y": 494,
+    "width": 79,
+    "height": 79,
+    "icon": null,
+    "label": "opt  start"
+  },
+  {
+    "id": "71",
+    "x": 302,
+    "y": 494,
+    "width": 89,
+    "height": 79,
+    "icon": null,
+    "label": "cmd  alt"
+  },
+  {
+    "id": "72",
+    "x": 400,
+    "y": 494,
+    "width": 474,
+    "height": 79,
+    "icon": null,
+    "label": ""
+  },
+  {
+    "id": "73",
+    "x": 883,
+    "y": 494,
+    "width": 90,
+    "height": 79,
+    "icon": null,
+    "label": "cmd  alt"
+  },
+  {
+    "id": "74",
+    "x": 982,
+    "y": 494,
+    "width": 78,
+    "height": 79,
+    "icon": null,
+    "label": "opt  ctrl"
+  },
+  {
+    "id": "75",
+    "x": 1069,
+    "y": 533,
+    "width": 79,
+    "height": 41,
+    "icon": null,
+    "label": "Left"
+  },
+  {
+    "id": "76",
+    "x": 1157,
+    "y": 494,
+    "width": 79,
+    "height": 39,
+    "icon": null,
+    "label": "Up"
+  },
+  {
+    "id": "77",
+    "x": 1157,
+    "y": 533,
+    "width": 79,
+    "height": 40,
+    "icon": null,
+    "label": "Down"
+  },
+  {
+    "id": "78",
+    "x": 1243,
+    "y": 533,
+    "width": 89,
+    "height": 41,
+    "icon": null,
+    "label": "Right"
+  }
+]
