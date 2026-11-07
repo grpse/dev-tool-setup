@@ -13,7 +13,7 @@ These extracted surfaces and legends are retained as reference materials. The Re
 Regenerate from the repository root using Python 3 and ffmpeg:
 
 ```sh
-python3 keyboard-layout/tools/extract-assets.py
+python3 keyboard/tools/extract-assets.py
 ```
 
 The extraction script reads `tools/layout-template.html` and writes `tools/extracted-layout.html` and these PNG assets. Change the template when changing the layout's markup.

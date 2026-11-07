@@ -1,0 +1,10 @@
+{
+  "default": "mx-keys-mini-us",
+  "keyboards": [
+    {
+      "id": "mx-keys-mini-us",
+      "name": "Logitech MX Keys Mini \u00b7 US",
+      "definition": "keyboards/mx-keys-mini-us/keyboard.json"
+    }
+  ]
+}

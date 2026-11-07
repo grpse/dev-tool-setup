@@ -11,7 +11,7 @@
     const rect = element.getBoundingClientRect();
     const probe = element.querySelector('i').getBoundingClientRect();
     const [sx, sy] = element.dataset.scale.split(',').map(Number);
-    const fontScale = Number(getComputedStyle(element).fontSize.replace('px', '')) / target.fontSize;
+    const fontScale = Number(getComputedStyle(element).fontSize.replace('px', '')) / target.fontSize * (Number(getComputedStyle(element).getPropertyValue('--camera-scale')) || 1);
     const dx = (rect.left - ink.left * fontScale * sx - scene.left) / scaleX - (542 + Number(key.dataset.keyX) + target.x);
     const dy = (probe.top - ink.ascent * fontScale * sy - scene.top) / scaleY - (390 + Number(key.dataset.keyY) + target.y);
     return { key: key.dataset.keyId, text: element.dataset.text, dx, dy };
